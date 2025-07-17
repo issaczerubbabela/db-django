@@ -12,7 +12,7 @@ echo.
 echo Both servers are starting...
 echo Django: http://localhost:8000
 echo FastAPI: http://localhost:8001
-echo API Documentation: http://localhost:8000/docs
+echo API Documentation: http://localhost:8001/docs
 echo.
 echo Press any key to stop all servers...
 pause > nul

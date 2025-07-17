@@ -32,8 +32,9 @@ echo   start_all.bat
 echo.
 echo Access points:
 echo   - Frontend: http://localhost:3000
-echo   - FastAPI: http://localhost:8000
-echo   - Django Admin: http://localhost:8001/admin
-echo   - API Docs: http://localhost:8000/docs
+echo   - Django: http://localhost:8000
+echo   - FastAPI: http://localhost:8001  
+echo   - Django Admin: http://localhost:8000/admin
+echo   - API Docs: http://localhost:8001/docs
 echo.
 pause

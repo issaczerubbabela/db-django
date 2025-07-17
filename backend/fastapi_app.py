@@ -6,8 +6,9 @@ This provides a FastAPI interface that can coexist with Django.
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
+from decimal import Decimal
 import os
 import django
 from django.conf import settings
@@ -16,7 +17,7 @@ from django.conf import settings
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'automation_db.settings')
 django.setup()
 
-from automations.models import Automation
+from automations.models import Automation, Tool, Person, AutomationPersonRole, Environment, TestData, Metrics, Artifacts
 
 # FastAPI app
 app = FastAPI(
@@ -35,6 +36,29 @@ app.add_middleware(
 )
 
 # Pydantic models
+class PersonModel(BaseModel):
+    name: str
+    role: str
+
+class EnvironmentModel(BaseModel):
+    type: str
+    vdi: Optional[str] = None
+    service_account: Optional[str] = None
+
+class TestDataModel(BaseModel):
+    spoc: Optional[str] = None
+
+class MetricsModel(BaseModel):
+    post_prod_total_cases: Optional[int] = None
+    post_prod_sys_ex_count: Optional[int] = None
+    post_prod_success_rate: Optional[float] = None
+
+class ArtifactsModel(BaseModel):
+    artifacts_link: Optional[str] = None
+    code_review: Optional[str] = None
+    demo: Optional[str] = None
+    rampup_issue_list: Optional[str] = None
+
 class AutomationBase(BaseModel):
     air_id: str = Field(..., description="Automation AIR ID")
     name: str = Field(..., description="Automation name")
@@ -55,9 +79,15 @@ class AutomationBase(BaseModel):
     comments: Optional[str] = Field(None, description="Comments")
     documentation: Optional[str] = Field(None, description="Documentation")
     modified: Optional[datetime] = Field(None, description="Modified date")
+    path: Optional[str] = Field(None, description="Path")
 
 class AutomationCreate(AutomationBase):
-    pass
+    # Nested data for creation
+    people: Optional[List[PersonModel]] = []
+    environments: Optional[List[EnvironmentModel]] = []
+    test_data: Optional[TestDataModel] = None
+    metrics: Optional[MetricsModel] = None
+    artifacts: Optional[ArtifactsModel] = None
 
 class AutomationUpdate(BaseModel):
     name: Optional[str] = None
@@ -78,10 +108,17 @@ class AutomationUpdate(BaseModel):
     comments: Optional[str] = None
     documentation: Optional[str] = None
     modified: Optional[datetime] = None
+    path: Optional[str] = None
 
 class AutomationResponse(AutomationBase):
     created_at: datetime
     updated_at: datetime
+    # Related data
+    people: List[PersonModel] = []
+    environments: List[EnvironmentModel] = []
+    test_data: Optional[TestDataModel] = None
+    metrics: Optional[MetricsModel] = None
+    artifacts: Optional[ArtifactsModel] = None
 
     class Config:
         from_attributes = True
@@ -89,6 +126,44 @@ class AutomationResponse(AutomationBase):
 # Helper functions
 def automation_to_dict(automation: Automation) -> dict:
     """Convert Django model to dict for Pydantic response"""
+    # Get related data
+    people = [
+        {'name': role.person.name, 'role': role.get_role_display()}
+        for role in automation.people_roles.all()
+    ]
+    
+    environments = [
+        {
+            'type': env.get_type_display(),
+            'vdi': env.vdi,
+            'service_account': env.service_account
+        }
+        for env in automation.environments.all()
+    ]
+    
+    test_data = None
+    if hasattr(automation, 'test_data') and automation.test_data:
+        test_data = {
+            'spoc': automation.test_data.spoc.name if automation.test_data.spoc else None
+        }
+    
+    metrics = None
+    if hasattr(automation, 'metrics') and automation.metrics:
+        metrics = {
+            'post_prod_total_cases': automation.metrics.post_prod_total_cases,
+            'post_prod_sys_ex_count': automation.metrics.post_prod_sys_ex_count,
+            'post_prod_success_rate': float(automation.metrics.post_prod_success_rate) if automation.metrics.post_prod_success_rate else None
+        }
+    
+    artifacts = None
+    if hasattr(automation, 'artifacts') and automation.artifacts:
+        artifacts = {
+            'artifacts_link': automation.artifacts.artifacts_link,
+            'code_review': automation.artifacts.get_code_review_display() if automation.artifacts.code_review else None,
+            'demo': automation.artifacts.get_demo_display() if automation.artifacts.demo else None,
+            'rampup_issue_list': automation.artifacts.rampup_issue_list
+        }
+    
     return {
         'air_id': automation.air_id,
         'name': automation.name,
@@ -109,9 +184,72 @@ def automation_to_dict(automation: Automation) -> dict:
         'comments': automation.comments,
         'documentation': automation.documentation,
         'modified': automation.modified,
+        'path': automation.path,
         'created_at': automation.created_at,
         'updated_at': automation.updated_at,
+        'people': people,
+        'environments': environments,
+        'test_data': test_data,
+        'metrics': metrics,
+        'artifacts': artifacts,
     }
+
+def create_related_data(automation: Automation, data: AutomationCreate):
+    """Create related data for an automation"""
+    # Create people roles
+    if data.people:
+        for person_data in data.people:
+            person, created = Person.objects.get_or_create(name=person_data.name)
+            # Map display role to database role
+            role_mapping = {
+                'Project Manager': 'project_manager',
+                'Project Designer': 'project_designer',
+                'Developer': 'developer',
+                'Tester': 'tester',
+                'Business SPOC': 'business_spoc',
+                'Business Stakeholder': 'business_stakeholder',
+                'Applications-App Owner': 'app_owner',
+            }
+            role = role_mapping.get(person_data.role, person_data.role.lower().replace(' ', '_'))
+            AutomationPersonRole.objects.create(
+                automation=automation,
+                person=person,
+                role=role
+            )
+    
+    # Create environments
+    if data.environments:
+        for env_data in data.environments:
+            Environment.objects.create(
+                automation=automation,
+                type=env_data.type.lower(),
+                vdi=env_data.vdi,
+                service_account=env_data.service_account
+            )
+    
+    # Create test data
+    if data.test_data and data.test_data.spoc:
+        spoc, created = Person.objects.get_or_create(name=data.test_data.spoc)
+        TestData.objects.create(automation=automation, spoc=spoc)
+    
+    # Create metrics
+    if data.metrics and any([data.metrics.post_prod_total_cases, data.metrics.post_prod_sys_ex_count, data.metrics.post_prod_success_rate]):
+        Metrics.objects.create(
+            automation=automation,
+            post_prod_total_cases=data.metrics.post_prod_total_cases,
+            post_prod_sys_ex_count=data.metrics.post_prod_sys_ex_count,
+            post_prod_success_rate=data.metrics.post_prod_success_rate
+        )
+    
+    # Create artifacts
+    if data.artifacts and any([data.artifacts.artifacts_link, data.artifacts.code_review, data.artifacts.demo, data.artifacts.rampup_issue_list]):
+        Artifacts.objects.create(
+            automation=automation,
+            artifacts_link=data.artifacts.artifacts_link,
+            code_review=data.artifacts.code_review,
+            demo=data.artifacts.demo,
+            rampup_issue_list=data.artifacts.rampup_issue_list
+        )
 
 # API Routes
 @app.get("/")
@@ -123,7 +261,13 @@ async def root():
 async def get_automations(search: Optional[str] = None):
     """Get all automations with optional search"""
     try:
-        queryset = Automation.objects.all()
+        queryset = Automation.objects.select_related('tool', 'modified_by').prefetch_related(
+            'people_roles__person',
+            'environments',
+            'test_data__spoc',
+            'metrics',
+            'artifacts'
+        )
         
         if search:
             from django.db.models import Q
@@ -145,7 +289,13 @@ async def get_automations(search: Optional[str] = None):
 async def get_automation(air_id: str):
     """Get a specific automation by AIR ID"""
     try:
-        automation = Automation.objects.get(air_id=air_id)
+        automation = Automation.objects.select_related('tool', 'modified_by').prefetch_related(
+            'people_roles__person',
+            'environments',
+            'test_data__spoc',
+            'metrics',
+            'artifacts'
+        ).get(air_id=air_id)
         return automation_to_dict(automation)
     except Automation.DoesNotExist:
         raise HTTPException(status_code=404, detail="Automation not found")
@@ -160,9 +310,23 @@ async def create_automation(automation: AutomationCreate):
         if Automation.objects.filter(air_id=automation.air_id).exists():
             raise HTTPException(status_code=400, detail="Automation with this AIR ID already exists")
         
-        # Create new automation
-        new_automation = Automation.objects.create(**automation.dict())
-        return automation_to_dict(new_automation)
+        # Create base automation data
+        automation_data = automation.dict(exclude={'people', 'environments', 'test_data', 'metrics', 'artifacts'})
+        new_automation = Automation.objects.create(**automation_data)
+        
+        # Create related data
+        create_related_data(new_automation, automation)
+        
+        # Fetch the created automation with all related data
+        created_automation = Automation.objects.select_related('tool', 'modified_by').prefetch_related(
+            'people_roles__person',
+            'environments',
+            'test_data__spoc',
+            'metrics',
+            'artifacts'
+        ).get(air_id=new_automation.air_id)
+        
+        return automation_to_dict(created_automation)
     except HTTPException:
         raise
     except Exception as e:
@@ -180,7 +344,17 @@ async def update_automation(air_id: str, automation: AutomationUpdate):
             setattr(existing_automation, field, value)
         
         existing_automation.save()
-        return automation_to_dict(existing_automation)
+        
+        # Fetch updated automation with all related data
+        updated_automation = Automation.objects.select_related('tool', 'modified_by').prefetch_related(
+            'people_roles__person',
+            'environments',
+            'test_data__spoc',
+            'metrics',
+            'artifacts'
+        ).get(air_id=air_id)
+        
+        return automation_to_dict(updated_automation)
     except Automation.DoesNotExist:
         raise HTTPException(status_code=404, detail="Automation not found")
     except Exception as e:
@@ -211,8 +385,23 @@ async def bulk_create_automations(automations: List[AutomationCreate]):
         for automation_data in automations:
             # Check if automation already exists
             if not Automation.objects.filter(air_id=automation_data.air_id).exists():
-                new_automation = Automation.objects.create(**automation_data.dict())
-                created_automations.append(automation_to_dict(new_automation))
+                # Create base automation
+                base_data = automation_data.dict(exclude={'people', 'environments', 'test_data', 'metrics', 'artifacts'})
+                new_automation = Automation.objects.create(**base_data)
+                
+                # Create related data
+                create_related_data(new_automation, automation_data)
+                
+                # Fetch created automation with related data
+                created_automation = Automation.objects.select_related('tool', 'modified_by').prefetch_related(
+                    'people_roles__person',
+                    'environments', 
+                    'test_data__spoc',
+                    'metrics',
+                    'artifacts'
+                ).get(air_id=new_automation.air_id)
+                
+                created_automations.append(automation_to_dict(created_automation))
         
         return {
             "message": f"Created {len(created_automations)} automations",
@@ -232,4 +421,4 @@ async def bulk_delete_automations(air_ids: List[str]):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

@@ -5,6 +5,7 @@ import { MagnifyingGlassIcon, PlusIcon, ViewColumnsIcon, RectangleStackIcon, Doc
 import { ChevronRightIcon, ChevronDownIcon } from '@heroicons/react/20/solid';
 import AutomationDetailsSidebar from './AutomationDetailsSidebar';
 import AutomationForm from './AutomationForm';
+import AutomationFormComplete from './AutomationFormComplete';
 import AutomationTabView from './AutomationTabView';
 
 export default function AutomationDatabase() {
@@ -70,12 +71,20 @@ export default function AutomationDatabase() {
       const response = await fetch('/api/automations');
       if (response.ok) {
         const data = await response.json();
-        setAutomations(data);
+        // Ensure data is an array
+        if (Array.isArray(data)) {
+          setAutomations(data);
+        } else {
+          console.error('API returned non-array data:', data);
+          setAutomations([]);
+        }
       } else {
         console.error('Failed to fetch automations');
+        setAutomations([]);
       }
     } catch (error) {
       console.error('Error fetching automations:', error);
+      setAutomations([]);
     } finally {
       setLoading(false);
     }
@@ -337,6 +346,7 @@ export default function AutomationDatabase() {
       'Complexity': automation.complexity || '',
       'Brief Description': automation.brief_description || '',
       'COE/FED': automation.coe_fed || '',
+      'Tool': automation.tool_name || '',
       'Tool Version': automation.tool_version || '',
       'Process Details': automation.process_details || '',
       'Object Details': automation.object_details || '',
@@ -350,9 +360,36 @@ export default function AutomationDatabase() {
       'Comments': automation.comments || '',
       'Documentation': automation.documentation || '',
       'Modified': automation.modified || '',
+      'Modified By': automation.modified_by_name || '',
       'Path': automation.path || '',
       'Created At': automation.created_at || '',
-      'Updated At': automation.updated_at || ''
+      'Updated At': automation.updated_at || '',
+      // People fields (flattened)
+      'Project Manager': automation.people?.find(p => p.role === 'Project Manager')?.name || '',
+      'Project Designer': automation.people?.find(p => p.role === 'Project Designer')?.name || '',
+      'Developer': automation.people?.find(p => p.role === 'Developer')?.name || '',
+      'Tester': automation.people?.find(p => p.role === 'Tester')?.name || '',
+      'Business SPOC': automation.people?.find(p => p.role === 'Business SPOC')?.name || '',
+      'Business Stakeholders': automation.people?.filter(p => p.role === 'Business Stakeholder').map(p => p.name).join('; ') || '',
+      'Applications-App Owner': automation.people?.find(p => p.role === 'Applications-App Owner')?.name || '',
+      // Environment fields (flattened)
+      'Dev VDI': automation.environments?.find(e => e.type === 'Development')?.vdi || '',
+      'Dev Service Account': automation.environments?.find(e => e.type === 'Development')?.service_account || '',
+      'QA VDI': automation.environments?.find(e => e.type === 'QA')?.vdi || '',
+      'QA Service Account': automation.environments?.find(e => e.type === 'QA')?.service_account || '',
+      'Production VDI': automation.environments?.find(e => e.type === 'Production')?.vdi || '',
+      'Production Service Account': automation.environments?.find(e => e.type === 'Production')?.service_account || '',
+      // Test Data
+      'Test Data SPOC': automation.test_data?.spoc || '',
+      // Metrics
+      'Post Production Total Cases': automation.metrics?.post_prod_total_cases || '',
+      'Post Production System Exceptions Count': automation.metrics?.post_prod_sys_ex_count || '',
+      'Post Production Success Rate': automation.metrics?.post_prod_success_rate || '',
+      // Artifacts
+      'Automation Artifacts Link': automation.artifacts?.artifacts_link || '',
+      'Code Review with M&E': automation.artifacts?.code_review || '',
+      'Automation Demo to M&E': automation.artifacts?.demo || '',
+      'Rampup/Postprod Issue/Resolution list to M&E': automation.artifacts?.rampup_issue_list || ''
     }));
   };
 
@@ -489,7 +526,7 @@ export default function AutomationDatabase() {
     setSelectedItems(newSelected);
   };
 
-  const filteredAutomations = automations.filter(automation => {
+  const filteredAutomations = (Array.isArray(automations) ? automations : []).filter(automation => {
     // Search term filter
     const matchesSearch = !searchTerm || (
       automation.air_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1410,7 +1447,7 @@ export default function AutomationDatabase() {
       )}
 
       {/* Form Modal */}
-      <AutomationForm
+      <AutomationFormComplete
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         onSubmit={handleCreateAutomation}
