@@ -20,20 +20,35 @@ export default function ImportModal({ isOpen, onClose, onImport, existingAutomat
   }, [defaultFormat]);
 
   const templateFields = [
+    // Main automation fields
     'air_id', 'name', 'type', 'brief_description', 'coe_fed', 'complexity',
-    'tool_version', 'process_details', 'object_details', 'queue',
+    'tool_name', 'tool_version', 'process_details', 'object_details', 'queue',
     'shared_folders', 'shared_mailboxes', 'qa_handshake',
     'preprod_deploy_date', 'prod_deploy_date', 'warranty_end_date',
-    'comments', 'documentation', 'modified', 'path'
+    'comments', 'documentation', 'modified', 'modified_by_name', 'path',
+    // People roles
+    'project_manager', 'project_designer', 'developer', 'tester', 
+    'business_spoc', 'business_stakeholder', 'app_owner',
+    // Environments
+    'dev_vdi', 'dev_service_account', 'qa_vdi', 'qa_service_account',
+    'uat_vdi', 'uat_service_account', 'prod_vdi', 'prod_service_account',
+    // Test Data
+    'test_data_spoc',
+    // Metrics
+    'post_prod_total_cases', 'post_prod_sys_ex_count', 'post_prod_success_rate',
+    // Artifacts
+    'artifacts_link', 'code_review', 'demo', 'rampup_issue_list'
   ];
 
   const sampleData = {
+    // Main automation fields
     air_id: 'AIR-2024-001',
     name: 'Sample Automation Process',
     type: 'RPA',
     brief_description: 'Automated invoice processing system',
     coe_fed: 'Finance',
     complexity: 'Medium',
+    tool_name: 'UiPath',
     tool_version: 'UiPath 2023.10',
     process_details: 'Processes invoices from email attachments',
     object_details: 'PDF extraction and validation',
@@ -47,18 +62,49 @@ export default function ImportModal({ isOpen, onClose, onImport, existingAutomat
     comments: 'Requires daily monitoring',
     documentation: 'https://docs.company.com/automation/air-2024-001',
     modified: '2024-01-30',
-    path: 'C:\\Automations\\InvoiceProcessing'
+    modified_by_name: 'John Doe',
+    path: 'C:\\Automations\\InvoiceProcessing',
+    // People roles
+    project_manager: 'Alice Johnson',
+    project_designer: 'Bob Smith',
+    developer: 'Charlie Brown',
+    tester: 'Diana Prince',
+    business_spoc: 'Eve Adams',
+    business_stakeholder: 'Frank Miller',
+    app_owner: 'Grace Lee',
+    // Environments
+    dev_vdi: 'DEV-VDI-001',
+    dev_service_account: 'svc_automation_dev',
+    qa_vdi: 'QA-VDI-001',
+    qa_service_account: 'svc_automation_qa',
+    uat_vdi: 'UAT-VDI-001',
+    uat_service_account: 'svc_automation_uat',
+    prod_vdi: 'PROD-VDI-001',
+    prod_service_account: 'svc_automation_prod',
+    // Test Data
+    test_data_spoc: 'Test Data Manager',
+    // Metrics
+    post_prod_total_cases: '1000',
+    post_prod_sys_ex_count: '5',
+    post_prod_success_rate: '99.5',
+    // Artifacts
+    artifacts_link: 'https://sharepoint.company.com/automation/artifacts',
+    code_review: 'completed',
+    demo: 'completed',
+    rampup_issue_list: 'Minor configuration issues resolved'
   };
 
   // Clean and validate automation data
   const cleanAutomationData = (automation) => {
     const cleaned = {
+      // Main automation fields
       air_id: automation.air_id?.trim() || '',
       name: automation.name?.trim() || '',
       type: automation.type?.trim() || '',
       brief_description: automation.brief_description?.trim() || null,
       coe_fed: automation.coe_fed?.trim() || null,
       complexity: automation.complexity?.trim() || null,
+      tool_name: automation.tool_name?.trim() || null,
       tool_version: automation.tool_version?.trim() || automation.tool?.trim() || null,
       process_details: automation.process_details?.trim() || null,
       object_details: automation.object_details?.trim() || null,
@@ -72,8 +118,43 @@ export default function ImportModal({ isOpen, onClose, onImport, existingAutomat
       comments: automation.comments?.trim() || null,
       documentation: automation.documentation?.trim() || null,
       modified: automation.modified?.trim() || null,
+      modified_by_name: automation.modified_by_name?.trim() || null,
       path: automation.path?.trim() || null,
-      // Initialize empty arrays/objects for related data
+      
+      // People roles - flattened for import
+      project_manager: automation.project_manager?.trim() || null,
+      project_designer: automation.project_designer?.trim() || null,
+      developer: automation.developer?.trim() || null,
+      tester: automation.tester?.trim() || null,
+      business_spoc: automation.business_spoc?.trim() || null,
+      business_stakeholder: automation.business_stakeholder?.trim() || null,
+      app_owner: automation.app_owner?.trim() || null,
+      
+      // Environments - flattened for import
+      dev_vdi: automation.dev_vdi?.trim() || null,
+      dev_service_account: automation.dev_service_account?.trim() || null,
+      qa_vdi: automation.qa_vdi?.trim() || null,
+      qa_service_account: automation.qa_service_account?.trim() || null,
+      uat_vdi: automation.uat_vdi?.trim() || null,
+      uat_service_account: automation.uat_service_account?.trim() || null,
+      prod_vdi: automation.prod_vdi?.trim() || null,
+      prod_service_account: automation.prod_service_account?.trim() || null,
+      
+      // Test Data
+      test_data_spoc: automation.test_data_spoc?.trim() || null,
+      
+      // Metrics
+      post_prod_total_cases: automation.post_prod_total_cases ? parseInt(automation.post_prod_total_cases) || null : null,
+      post_prod_sys_ex_count: automation.post_prod_sys_ex_count ? parseInt(automation.post_prod_sys_ex_count) || null : null,
+      post_prod_success_rate: automation.post_prod_success_rate ? parseFloat(automation.post_prod_success_rate) || null : null,
+      
+      // Artifacts
+      artifacts_link: automation.artifacts_link?.trim() || null,
+      code_review: automation.code_review?.trim() || null,
+      demo: automation.demo?.trim() || null,
+      rampup_issue_list: automation.rampup_issue_list?.trim() || null,
+      
+      // Keep original structure for compatibility
       people: automation.people || [],
       environments: automation.environments || [],
       test_data: automation.test_data || {},

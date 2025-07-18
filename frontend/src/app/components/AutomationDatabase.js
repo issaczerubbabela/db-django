@@ -1084,10 +1084,22 @@ export default function AutomationDatabase() {
                                       // CSV template download
                                       const templateFields = [
                                         'air_id', 'name', 'type', 'brief_description', 'coe_fed', 'complexity',
-                                        'tool_version', 'process_details', 'object_details', 'queue',
+                                        'tool_name', 'tool_version', 'process_details', 'object_details', 'queue',
                                         'shared_folders', 'shared_mailboxes', 'qa_handshake',
                                         'preprod_deploy_date', 'prod_deploy_date', 'warranty_end_date',
-                                        'comments', 'documentation', 'modified', 'path'
+                                        'comments', 'documentation', 'modified', 'modified_by_name', 'path',
+                                        // People roles (flattened)
+                                        'project_manager', 'project_designer', 'developer', 'tester',
+                                        'business_spoc', 'business_stakeholder', 'app_owner',
+                                        // Environments (flattened)
+                                        'dev_vdi', 'dev_service_account', 'qa_vdi', 'qa_service_account',
+                                        'uat_vdi', 'uat_service_account', 'prod_vdi', 'prod_service_account',
+                                        // Test Data
+                                        'test_data_spoc',
+                                        // Metrics
+                                        'post_prod_total_cases', 'post_prod_sys_ex_count', 'post_prod_success_rate',
+                                        // Artifacts
+                                        'artifacts_link', 'code_review', 'demo', 'rampup_issue_list'
                                       ];
                                       const csvContent = templateFields.join(',') + '\n' + templateFields.map(field => {
                                         const sampleData = {
@@ -1097,7 +1109,8 @@ export default function AutomationDatabase() {
                                           brief_description: 'Automated invoice processing system',
                                           coe_fed: 'Finance',
                                           complexity: 'Medium',
-                                          tool_version: 'UiPath 2023.10',
+                                          tool_name: 'UiPath',
+                                          tool_version: '2023.10',
                                           process_details: 'Processes invoices from email attachments',
                                           object_details: 'PDF extraction and validation',
                                           queue: 'Invoice_Processing_Queue',
@@ -1110,7 +1123,36 @@ export default function AutomationDatabase() {
                                           comments: 'Requires daily monitoring',
                                           documentation: 'https://docs.company.com/automation/air-2024-001',
                                           modified: '2024-01-30',
-                                          path: 'C:\\Automations\\InvoiceProcessing'
+                                          modified_by_name: 'John Doe',
+                                          path: 'C:\\Automations\\InvoiceProcessing',
+                                          // People roles
+                                          project_manager: 'Alice Smith',
+                                          project_designer: 'Bob Johnson',
+                                          developer: 'Carol Davis',
+                                          tester: 'David Wilson',
+                                          business_spoc: 'Eva Brown',
+                                          business_stakeholder: 'Frank Miller',
+                                          app_owner: 'Grace Taylor',
+                                          // Environments
+                                          dev_vdi: 'DEV-VDI-001',
+                                          dev_service_account: 'svc_automation_dev',
+                                          qa_vdi: 'QA-VDI-001',
+                                          qa_service_account: 'svc_automation_qa',
+                                          uat_vdi: 'UAT-VDI-001',
+                                          uat_service_account: 'svc_automation_uat',
+                                          prod_vdi: 'PROD-VDI-001',
+                                          prod_service_account: 'svc_automation_prod',
+                                          // Test Data
+                                          test_data_spoc: 'Test Manager',
+                                          // Metrics
+                                          post_prod_total_cases: '1000',
+                                          post_prod_sys_ex_count: '5',
+                                          post_prod_success_rate: '99.5',
+                                          // Artifacts
+                                          artifacts_link: 'https://artifacts.company.com/air-2024-001',
+                                          code_review: 'Completed',
+                                          demo: 'https://demo.company.com/air-2024-001',
+                                          rampup_issue_list: 'https://issues.company.com/air-2024-001'
                                         };
                                         return sampleData[field] || '';
                                       }).join(',');
@@ -1139,7 +1181,8 @@ export default function AutomationDatabase() {
                                         brief_description: 'Automated invoice processing system',
                                         coe_fed: 'Finance',
                                         complexity: 'Medium',
-                                        tool_version: 'UiPath 2023.10',
+                                        tool_name: 'UiPath',
+                                        tool_version: '2023.10',
                                         process_details: 'Processes invoices from email attachments',
                                         object_details: 'PDF extraction and validation',
                                         queue: 'Invoice_Processing_Queue',
@@ -1152,7 +1195,36 @@ export default function AutomationDatabase() {
                                         comments: 'Requires daily monitoring',
                                         documentation: 'https://docs.company.com/automation/air-2024-001',
                                         modified: '2024-01-30',
-                                        path: 'C:\\Automations\\InvoiceProcessing'
+                                        modified_by_name: 'John Doe',
+                                        path: 'C:\\Automations\\InvoiceProcessing',
+                                        // People roles (flattened for import)
+                                        project_manager: 'Alice Smith',
+                                        project_designer: 'Bob Johnson',
+                                        developer: 'Carol Davis',
+                                        tester: 'David Wilson',
+                                        business_spoc: 'Eva Brown',
+                                        business_stakeholder: 'Frank Miller',
+                                        app_owner: 'Grace Taylor',
+                                        // Environments (flattened for import)
+                                        dev_vdi: 'DEV-VDI-001',
+                                        dev_service_account: 'svc_automation_dev',
+                                        qa_vdi: 'QA-VDI-001',
+                                        qa_service_account: 'svc_automation_qa',
+                                        uat_vdi: 'UAT-VDI-001',
+                                        uat_service_account: 'svc_automation_uat',
+                                        prod_vdi: 'PROD-VDI-001',
+                                        prod_service_account: 'svc_automation_prod',
+                                        // Test Data
+                                        test_data_spoc: 'Test Manager',
+                                        // Metrics
+                                        post_prod_total_cases: 1000,
+                                        post_prod_sys_ex_count: 5,
+                                        post_prod_success_rate: 99.5,
+                                        // Artifacts
+                                        artifacts_link: 'https://artifacts.company.com/air-2024-001',
+                                        code_review: 'Completed',
+                                        demo: 'https://demo.company.com/air-2024-001',
+                                        rampup_issue_list: 'https://issues.company.com/air-2024-001'
                                       };
                                       const jsonContent = JSON.stringify([sampleData], null, 2);
                                       const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
@@ -1175,10 +1247,22 @@ export default function AutomationDatabase() {
                                       // Excel template download
                                       const templateFields = [
                                         'air_id', 'name', 'type', 'brief_description', 'coe_fed', 'complexity',
-                                        'tool_version', 'process_details', 'object_details', 'queue',
+                                        'tool_name', 'tool_version', 'process_details', 'object_details', 'queue',
                                         'shared_folders', 'shared_mailboxes', 'qa_handshake',
                                         'preprod_deploy_date', 'prod_deploy_date', 'warranty_end_date',
-                                        'comments', 'documentation', 'modified', 'path'
+                                        'comments', 'documentation', 'modified', 'modified_by_name', 'path',
+                                        // People roles (flattened)
+                                        'project_manager', 'project_designer', 'developer', 'tester',
+                                        'business_spoc', 'business_stakeholder', 'app_owner',
+                                        // Environments (flattened)
+                                        'dev_vdi', 'dev_service_account', 'qa_vdi', 'qa_service_account',
+                                        'uat_vdi', 'uat_service_account', 'prod_vdi', 'prod_service_account',
+                                        // Test Data
+                                        'test_data_spoc',
+                                        // Metrics
+                                        'post_prod_total_cases', 'post_prod_sys_ex_count', 'post_prod_success_rate',
+                                        // Artifacts
+                                        'artifacts_link', 'code_review', 'demo', 'rampup_issue_list'
                                       ];
                                       const excelContent = templateFields.join('\t') + '\n' + templateFields.map(field => {
                                         const sampleData = {
@@ -1188,7 +1272,8 @@ export default function AutomationDatabase() {
                                           brief_description: 'Automated invoice processing system',
                                           coe_fed: 'Finance',
                                           complexity: 'Medium',
-                                          tool_version: 'UiPath 2023.10',
+                                          tool_name: 'UiPath',
+                                          tool_version: '2023.10',
                                           process_details: 'Processes invoices from email attachments',
                                           object_details: 'PDF extraction and validation',
                                           queue: 'Invoice_Processing_Queue',
@@ -1201,7 +1286,36 @@ export default function AutomationDatabase() {
                                           comments: 'Requires daily monitoring',
                                           documentation: 'https://docs.company.com/automation/air-2024-001',
                                           modified: '2024-01-30',
-                                          path: 'C:\\Automations\\InvoiceProcessing'
+                                          modified_by_name: 'John Doe',
+                                          path: 'C:\\Automations\\InvoiceProcessing',
+                                          // People roles
+                                          project_manager: 'Alice Smith',
+                                          project_designer: 'Bob Johnson',
+                                          developer: 'Carol Davis',
+                                          tester: 'David Wilson',
+                                          business_spoc: 'Eva Brown',
+                                          business_stakeholder: 'Frank Miller',
+                                          app_owner: 'Grace Taylor',
+                                          // Environments
+                                          dev_vdi: 'DEV-VDI-001',
+                                          dev_service_account: 'svc_automation_dev',
+                                          qa_vdi: 'QA-VDI-001',
+                                          qa_service_account: 'svc_automation_qa',
+                                          uat_vdi: 'UAT-VDI-001',
+                                          uat_service_account: 'svc_automation_uat',
+                                          prod_vdi: 'PROD-VDI-001',
+                                          prod_service_account: 'svc_automation_prod',
+                                          // Test Data
+                                          test_data_spoc: 'Test Manager',
+                                          // Metrics
+                                          post_prod_total_cases: '1000',
+                                          post_prod_sys_ex_count: '5',
+                                          post_prod_success_rate: '99.5',
+                                          // Artifacts
+                                          artifacts_link: 'https://artifacts.company.com/air-2024-001',
+                                          code_review: 'Completed',
+                                          demo: 'https://demo.company.com/air-2024-001',
+                                          rampup_issue_list: 'https://issues.company.com/air-2024-001'
                                         };
                                         return sampleData[field] || '';
                                       }).join('\t');
