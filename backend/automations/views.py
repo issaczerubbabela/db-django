@@ -5,6 +5,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from .models import Automation
 from .serializers import AutomationSerializer
+from .search import AutomationSearchService
 
 
 class AutomationViewSet(viewsets.ModelViewSet):
@@ -83,6 +84,39 @@ class AutomationViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+    @action(detail=False, methods=['get'])
+    def search(self, request):
+        """
+        Advanced search endpoint using FTS5 and fuzzy matching.
+        """
+        query = request.query_params.get('q', '').strip()
+        limit = min(int(request.query_params.get('limit', 50)), 100)  # Max 100 results
+        include_fuzzy = request.query_params.get('fuzzy', 'true').lower() == 'true'
+        
+        if not query:
+            return Response({
+                'exact_matches': [],
+                'fuzzy_matches': [],
+                'suggestions': [],
+                'total_count': 0,
+                'query': query
+            })
+        
+        try:
+            results = AutomationSearchService.search(
+                query=query,
+                limit=limit,
+                include_fuzzy=include_fuzzy
+            )
+            results['query'] = query
+            return Response(results)
+        
+        except Exception as e:
+            return Response(
+                {'error': f'Search failed: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
     @action(detail=False, methods=['delete'])
     def bulk_delete(self, request):
         """

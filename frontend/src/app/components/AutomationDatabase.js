@@ -11,6 +11,9 @@ import ImportModal from './ImportModal';
 
 export default function AutomationDatabase() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const [selectedAutomation, setSelectedAutomation] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -55,7 +58,62 @@ export default function AutomationDatabase() {
   // Clear selections when filters change
   useEffect(() => {
     setSelectedItems(new Set());
-  }, [searchTerm, filters]);
+    // Clear search results when filters change
+    setShowSearchResults(false);
+    setSearchResults(null);
+  }, [filters]); // Remove searchTerm from dependencies to avoid clearing on search
+
+  // Debounced search functionality
+  useEffect(() => {
+    const searchTimeout = setTimeout(() => {
+      if (searchTerm.trim().length >= 2) {
+        performSearch(searchTerm.trim());
+      } else {
+        setSearchResults(null);
+        setShowSearchResults(false);
+        setIsSearching(false);
+      }
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(searchTimeout);
+  }, [searchTerm]);
+
+  const performSearch = async (query) => {
+    if (!query.trim()) return;
+    
+    setIsSearching(true);
+    try {
+      const response = await fetch(`/api/automations/search?q=${encodeURIComponent(query)}&limit=50&fuzzy=true`);
+      if (response.ok) {
+        const data = await response.json();
+        setSearchResults(data);
+        setShowSearchResults(true);
+      } else {
+        console.error('Search failed');
+        setSearchResults(null);
+        setShowSearchResults(false);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      setSearchResults(null);
+      setShowSearchResults(false);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchTerm('');
+    setSearchResults(null);
+    setShowSearchResults(false);
+    setIsSearching(false);
+  };
+
+  const handleSearchResultClick = (automation) => {
+    setSelectedAutomation(automation);
+    setIsSidebarOpen(true);
+    setShowSearchResults(false);
+  };
 
   // Clear selections when view changes
   useEffect(() => {
@@ -528,53 +586,64 @@ export default function AutomationDatabase() {
     setSelectedItems(newSelected);
   };
 
-  const filteredAutomations = (Array.isArray(automations) ? automations : []).filter(automation => {
-    // Search term filter
-    const matchesSearch = !searchTerm || (
-      automation.air_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      automation.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      automation.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      automation.brief_description?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  // Determine which automations to show based on search results or normal filtering
+  const getDisplayAutomations = () => {
+    // If we have active search results and no filters, show search results
+    if (showSearchResults && searchResults && Object.values(filters).every(filter => filter === '')) {
+      return [...(searchResults.exact_matches || []), ...(searchResults.fuzzy_matches || [])];
+    }
+    
+    // Otherwise, use normal filtering
+    return (Array.isArray(automations) ? automations : []).filter(automation => {
+      // Search term filter (only apply if not using search results)
+      const matchesSearch = showSearchResults || !searchTerm || (
+        automation.air_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        automation.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        automation.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        automation.brief_description?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
 
-    // Type filter
-    const matchesType = !filters.type || automation.type?.toLowerCase() === filters.type.toLowerCase();
+      // Type filter
+      const matchesType = !filters.type || automation.type?.toLowerCase() === filters.type.toLowerCase();
 
-    // Complexity filter
-    const matchesComplexity = !filters.complexity || automation.complexity?.toLowerCase() === filters.complexity.toLowerCase();
+      // Complexity filter
+      const matchesComplexity = !filters.complexity || automation.complexity?.toLowerCase() === filters.complexity.toLowerCase();
 
-    // COE/FED filter
-    const matchesCoeFed = !filters.coe_fed || automation.coe_fed?.toLowerCase() === filters.coe_fed.toLowerCase();
+      // COE/FED filter
+      const matchesCoeFed = !filters.coe_fed || automation.coe_fed?.toLowerCase() === filters.coe_fed.toLowerCase();
 
-    // Has description filter
-    const matchesDescription = !filters.hasDescription || 
-      (filters.hasDescription === 'with' && automation.brief_description) ||
-      (filters.hasDescription === 'without' && !automation.brief_description);
+      // Has description filter
+      const matchesDescription = !filters.hasDescription || 
+        (filters.hasDescription === 'with' && automation.brief_description) ||
+        (filters.hasDescription === 'without' && !automation.brief_description);
 
-    // Date range filter (basic implementation)
-    const matchesDateRange = !filters.dateRange || (() => {
-      const now = new Date();
-      const createdAt = automation.created_at ? new Date(automation.created_at) : null;
-      if (!createdAt) return filters.dateRange === 'unknown';
+      // Date range filter (basic implementation)
+      const matchesDateRange = !filters.dateRange || (() => {
+        const now = new Date();
+        const createdAt = automation.created_at ? new Date(automation.created_at) : null;
+        if (!createdAt) return filters.dateRange === 'unknown';
 
-      switch (filters.dateRange) {
-        case 'today':
-          return createdAt.toDateString() === now.toDateString();
-        case 'week':
-          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          return createdAt >= weekAgo;
-        case 'month':
-          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-          return createdAt >= monthAgo;
-        case 'unknown':
-          return !automation.created_at;
-        default:
-          return true;
-      }
-    })();
+        switch (filters.dateRange) {
+          case 'today':
+            return createdAt.toDateString() === now.toDateString();
+          case 'week':
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            return createdAt >= weekAgo;
+          case 'month':
+            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            return createdAt >= monthAgo;
+          case 'unknown':
+            return !automation.created_at;
+          default:
+            return true;
+        }
+      })();
 
-    return matchesSearch && matchesType && matchesComplexity && matchesCoeFed && matchesDescription && matchesDateRange;
-  });
+      return matchesSearch && matchesType && matchesComplexity && matchesCoeFed && matchesDescription && matchesDateRange;
+    });
+  };
+
+  const filteredAutomations = getDisplayAutomations();
 
   const handleRowClick = (automation) => {
     setSelectedAutomation(automation);
@@ -1133,8 +1202,195 @@ export default function AutomationDatabase() {
                       placeholder="Search automations..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 text-black rounded-md leading-5 bg-white placeholder-black-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                      className="block w-full pl-10 pr-10 py-2 border border-gray-300 text-black rounded-md leading-5 bg-white placeholder-black-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
+                    {/* Clear search button */}
+                    {searchTerm && (
+                      <button
+                        onClick={clearSearch}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      >
+                        <svg className="h-4 w-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                    
+                    {/* Search Results Dropdown */}
+                    {showSearchResults && searchResults && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-md shadow-lg border border-gray-200 z-30 max-h-96 overflow-y-auto">
+                        {/* Search Status */}
+                        <div className="p-3 border-b border-gray-200 bg-gray-50">
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm text-gray-600">
+                              {isSearching && (
+                                <span className="flex items-center">
+                                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  Searching...
+                                </span>
+                              )}
+                              {!isSearching && searchResults && (
+                                <span>
+                                  Found {searchResults.total_count} result{searchResults.total_count !== 1 ? 's' : ''} for &ldquo;{searchResults.query}&rdquo;
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => setShowSearchResults(false)}
+                              className="text-gray-400 hover:text-gray-600"
+                            >
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Search Results */}
+                        {!isSearching && searchResults && (
+                          <div className="max-h-72 overflow-y-auto">
+                            {/* Exact Matches */}
+                            {searchResults.exact_matches && searchResults.exact_matches.length > 0 && (
+                              <div>
+                                <div className="px-3 py-2 bg-green-50 border-b border-gray-200">
+                                  <h4 className="text-sm font-medium text-green-800">Exact Matches ({searchResults.exact_matches.length})</h4>
+                                </div>
+                                {searchResults.exact_matches.map((automation) => (
+                                  <div
+                                    key={automation.air_id}
+                                    onClick={() => handleSearchResultClick(automation)}
+                                    className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex-1">
+                                        <div className="flex items-center space-x-2">
+                                          <span className="font-medium text-gray-900">{automation.air_id}</span>
+                                          <span className="text-gray-500">-</span>
+                                          <span 
+                                            className="text-gray-800"
+                                            dangerouslySetInnerHTML={{ 
+                                              __html: automation.name_snippet || automation.name 
+                                            }}
+                                          />
+                                        </div>
+                                        <div className="mt-1">
+                                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getComplexityColor(automation.complexity || 'unknown')}`}>
+                                            {automation.type}
+                                          </span>
+                                          {automation.complexity && (
+                                            <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getComplexityColor(automation.complexity)}`}>
+                                              {automation.complexity}
+                                            </span>
+                                          )}
+                                        </div>
+                                        {automation.description_snippet && (
+                                          <div 
+                                            className="mt-1 text-sm text-gray-600"
+                                            dangerouslySetInnerHTML={{ 
+                                              __html: automation.description_snippet 
+                                            }}
+                                          />
+                                        )}
+                                      </div>
+                                      <div className="ml-3">
+                                        <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Fuzzy Matches */}
+                            {searchResults.fuzzy_matches && searchResults.fuzzy_matches.length > 0 && (
+                              <div>
+                                <div className="px-3 py-2 bg-yellow-50 border-b border-gray-200">
+                                  <h4 className="text-sm font-medium text-yellow-800">Similar Matches ({searchResults.fuzzy_matches.length})</h4>
+                                </div>
+                                {searchResults.fuzzy_matches.map((automation) => (
+                                  <div
+                                    key={automation.air_id}
+                                    onClick={() => handleSearchResultClick(automation)}
+                                    className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex-1">
+                                        <div className="flex items-center space-x-2">
+                                          <span className="font-medium text-gray-900">{automation.air_id}</span>
+                                          <span className="text-gray-500">-</span>
+                                          <span className="text-gray-800">{automation.name}</span>
+                                        </div>
+                                        <div className="mt-1">
+                                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getComplexityColor(automation.complexity || 'unknown')}`}>
+                                            {automation.type}
+                                          </span>
+                                          {automation.complexity && (
+                                            <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getComplexityColor(automation.complexity)}`}>
+                                              {automation.complexity}
+                                            </span>
+                                          )}
+                                        </div>
+                                        {automation.brief_description && (
+                                          <div className="mt-1 text-sm text-gray-600 truncate">
+                                            {automation.brief_description}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="ml-3">
+                                        <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* No Results */}
+                            {searchResults.total_count === 0 && (
+                              <div className="p-6 text-center">
+                                <div className="text-gray-500">
+                                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                  <h3 className="mt-2 text-sm font-medium text-gray-900">No results found</h3>
+                                  <p className="mt-1 text-sm text-gray-500">
+                                    Try adjusting your search terms or check the spelling.
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Spell Suggestions */}
+                            {searchResults.suggestions && searchResults.suggestions.length > 0 && (
+                              <div className="p-3 bg-blue-50 border-t border-gray-200">
+                                <h4 className="text-sm font-medium text-blue-800 mb-2">Did you mean:</h4>
+                                <div className="flex flex-wrap gap-2">
+                                  {searchResults.suggestions.slice(0, 3).map((suggestion, index) => (
+                                    <button
+                                      key={index}
+                                      onClick={() => {
+                                        const newQuery = searchTerm.replace(suggestion.original, suggestion.suggestion);
+                                        setSearchTerm(newQuery);
+                                      }}
+                                      className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
+                                    >
+                                      {suggestion.suggestion}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   
                   {/* Filter Button */}
