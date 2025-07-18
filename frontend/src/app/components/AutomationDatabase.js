@@ -7,6 +7,7 @@ import AutomationDetailsSidebar from './AutomationDetailsSidebar';
 import AutomationForm from './AutomationForm';
 import AutomationFormComplete from './AutomationFormComplete';
 import AutomationTabView from './AutomationTabView';
+import ImportModal from './ImportModal';
 
 export default function AutomationDatabase() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -19,9 +20,12 @@ export default function AutomationDatabase() {
   const [isImporting, setIsImporting] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const [showImportDropdown, setShowImportDropdown] = useState(false);
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [editingCell, setEditingCell] = useState(null); // { airId, field }
   const [editingValue, setEditingValue] = useState('');
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importFormat, setImportFormat] = useState('csv');
   const [filters, setFilters] = useState({
     type: '',
     complexity: '',
@@ -29,9 +33,9 @@ export default function AutomationDatabase() {
     hasDescription: '',
     dateRange: ''
   });
-  const fileInputRef = useRef(null);
   const filterDropdownRef = useRef(null);
   const exportDropdownRef = useRef(null);
+  const importDropdownRef = useRef(null);
 
   // Close filter dropdown when clicking outside
   useEffect(() => {
@@ -41,6 +45,9 @@ export default function AutomationDatabase() {
       }
       if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target)) {
         setShowExportDropdown(false);
+      }
+      if (importDropdownRef.current && !importDropdownRef.current.contains(event.target)) {
+        setShowImportDropdown(false);
       }
     };
 
@@ -144,176 +151,103 @@ export default function AutomationDatabase() {
     }
   };
 
-  const parseCsvData = (csvText) => {
-    const lines = csvText.split('\n').filter(line => line.trim());
-    if (lines.length < 2) return [];
-
-    // Parse CSV with proper handling of quoted fields containing commas
-    const parseCSVLine = (line) => {
-      const result = [];
-      let current = '';
-      let inQuotes = false;
-      
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        
-        if (char === '"') {
-          inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-          result.push(current.trim());
-          current = '';
-        } else {
-          current += char;
-        }
-      }
-      result.push(current.trim());
-      return result;
+  // Enhanced import function that handles both new records and updates
+  const handleEnhancedImport = async (records, analysis) => {
+    setIsImporting(true);
+    const results = {
+      created: 0,
+      updated: 0,
+      errors: []
     };
 
-    const headers = parseCSVLine(lines[0]);
-    console.log('CSV Headers:', headers);
-    const automations = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      const values = parseCSVLine(lines[i]);
-      console.log(`Line ${i} values count: ${values.length}, headers count: ${headers.length}`);
-      
-      if (values.length === headers.length) {
-        const automation = {};
-        headers.forEach((header, index) => {
-          // Direct field mapping - headers should match database fields exactly
-          automation[header] = values[index] || '';
-        });
-        
-        // Validate and clean the automation data
-        const cleanedAutomation = {
-          air_id: automation.air_id?.trim() || '',
-          name: automation.name?.trim() || '',
-          type: automation.type?.trim() || '',
-          brief_description: automation.brief_description?.trim() || null,
-          coe_fed: automation.coe_fed?.trim() || null,
-          complexity: automation.complexity?.trim() || null,
-          // Combine tool and tool_version into tool_version field since DB doesn't have separate tool field
-          tool_version: automation.tool_version?.trim() || automation.tool?.trim() || null,
-          process_details: automation.process_details?.trim() || null,
-          object_details: automation.object_details?.trim() || null,
-          queue: automation.queue?.trim() || null,
-          shared_folders: automation.shared_folders?.trim() || null,
-          shared_mailboxes: automation.shared_mailboxes?.trim() || null,
-          qa_handshake: automation.qa_handshake?.trim() || null,
-          preprod_deploy_date: automation.preprod_deploy_date?.trim() || null,
-          prod_deploy_date: automation.prod_deploy_date?.trim() || null,
-          warranty_end_date: automation.warranty_end_date?.trim() || null,
-          comments: automation.comments?.trim() || null,
-          documentation: automation.documentation?.trim() || null,
-          modified: automation.modified?.trim() || null,
-          // Skip modified_by since DB expects modified_by_id (foreign key)
-          path: automation.path?.trim() || null,
-          // Initialize empty arrays/objects for related data
-          people: [],
-          environments: [],
-          test_data: {},
-          metrics: {},
-          artifacts: {}
-        };
-        
-        console.log('Cleaned automation:', cleanedAutomation);
-        
-        // Ensure required fields exist and are not empty
-        if (cleanedAutomation.air_id && cleanedAutomation.name && cleanedAutomation.type) {
-          automations.push(cleanedAutomation);
-        } else {
-          console.warn(`Skipping automation on line ${i}: missing required fields`, {
-            air_id: cleanedAutomation.air_id,
-            name: cleanedAutomation.name,
-            type: cleanedAutomation.type
-          });
-        }
-      } else {
-        console.warn(`Line ${i} has ${values.length} values but expected ${headers.length}`);
-      }
-    }
-    return automations;
-  };
-
-  const handleCsvImport = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      alert('Please select a CSV file');
-      return;
-    }
-
-    setIsImporting(true);
     try {
-      const text = await file.text();
-      console.log('CSV text length:', text.length);
-      console.log('First 200 characters:', text.substring(0, 200));
-      
-      const csvAutomations = parseCsvData(text);
-      console.log('Parsed automations:', csvAutomations.length);
-      console.log('First automation:', csvAutomations[0]);
-      
-      if (csvAutomations.length === 0) {
-        alert('No valid automation data found in CSV. Please check that the CSV has the correct headers and data format.');
-        return;
-      }
-
-      // Import automations one by one
-      let successCount = 0;
-      let errorCount = 0;
-      const errors = [];
-      
-      for (const automation of csvAutomations) {
+      // Process new records
+      for (const record of analysis.newRecords) {
         try {
-          console.log('Importing automation:', automation.air_id);
+          // Clean the record data before sending
+          const cleanRecord = { ...record };
+          delete cleanRecord._index;
+          
           const response = await fetch('/api/automations', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(automation),
+            body: JSON.stringify(cleanRecord),
           });
 
           if (response.ok) {
-            successCount++;
-            console.log('Successfully imported:', automation.air_id);
+            results.created++;
           } else {
-            errorCount++;
             const errorText = await response.text();
-            console.error('Failed to import:', automation.air_id, 'Error:', errorText);
-            errors.push(`${automation.air_id}: ${errorText}`);
+            results.errors.push(`Failed to create ${record.air_id}: ${errorText}`);
           }
         } catch (error) {
-          errorCount++;
-          console.error('Error importing automation:', automation.air_id, error);
-          errors.push(`${automation.air_id}: ${error.message}`);
+          results.errors.push(`Error creating ${record.air_id}: ${error.message}`);
+        }
+      }
+
+      // Process updates
+      for (const record of analysis.existing) {
+        try {
+          // Only send changed fields
+          const updateData = {};
+          Object.keys(record._changes || {}).forEach(field => {
+            updateData[field] = record[field];
+          });
+
+          if (Object.keys(updateData).length > 0) {
+            const response = await fetch(`/api/automations/${record.air_id}`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(updateData),
+            });
+
+            if (response.ok) {
+              results.updated++;
+            } else {
+              const errorText = await response.text();
+              results.errors.push(`Failed to update ${record.air_id}: ${errorText}`);
+            }
+          }
+        } catch (error) {
+          results.errors.push(`Error updating ${record.air_id}: ${error.message}`);
         }
       }
 
       // Refresh the automations list
       await fetchAutomations();
+
+      // Show results
+      let message = `Import completed:\n`;
+      message += `• ${results.created} new records created\n`;
+      message += `• ${results.updated} existing records updated`;
       
-      let message = `Successfully imported ${successCount} out of ${csvAutomations.length} automations`;
-      if (errorCount > 0) {
-        message += `\n\nErrors encountered:\n${errors.slice(0, 3).join('\n')}`;
-        if (errors.length > 3) {
-          message += `\n... and ${errors.length - 3} more errors`;
+      if (results.errors.length > 0) {
+        message += `\n\nErrors (${results.errors.length}):\n`;
+        message += results.errors.slice(0, 3).join('\n');
+        if (results.errors.length > 3) {
+          message += `\n... and ${results.errors.length - 3} more errors`;
         }
       }
-      alert(message);
       
+      alert(message);
+
     } catch (error) {
-      console.error('Error reading CSV file:', error);
-      alert('Error reading CSV file');
+      console.error('Import error:', error);
+      alert('An error occurred during import');
     } finally {
       setIsImporting(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
+  };
+
+  // Import handlers for different formats
+  const handleImportWithFormat = (format) => {
+    setImportFormat(format);
+    setIsImportModalOpen(true);
+    setShowImportDropdown(false);
   };
 
   // Get unique values for filter dropdowns
@@ -1115,6 +1049,184 @@ export default function AutomationDatabase() {
                         </div>
                       )}
                     </div>
+
+                    {/* Import Button */}
+                    <div className="relative" ref={importDropdownRef}>
+                      <button
+                        onClick={() => setShowImportDropdown(!showImportDropdown)}
+                        className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                      >
+                        <DocumentArrowUpIcon className="h-5 w-5 mr-2" />
+                        Import
+                        <ChevronDownIcon className={`h-4 w-4 ml-1 transition-transform ${showImportDropdown ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {/* Import Dropdown */}
+                      {showImportDropdown && (
+                        <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg border border-gray-200 z-20">
+                          <div className="p-4">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Import Data</h3>
+                            
+                            <div className="space-y-2">
+                              <button
+                                onClick={() => handleImportWithFormat('auto')}
+                                className="w-full text-left px-3 py-2 text-sm bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors"
+                              >
+                                <div className="font-medium text-blue-900">Import from File</div>
+                                <div className="text-blue-700 text-xs">CSV, JSON, or Excel files</div>
+                              </button>
+                              
+                              <div className="pt-2 border-t border-gray-200">
+                                <div className="text-xs text-gray-600 mb-2">Download Templates:</div>
+                                <div className="grid grid-cols-3 gap-1">
+                                  <button
+                                    onClick={() => {
+                                      // CSV template download
+                                      const templateFields = [
+                                        'air_id', 'name', 'type', 'brief_description', 'coe_fed', 'complexity',
+                                        'tool_version', 'process_details', 'object_details', 'queue',
+                                        'shared_folders', 'shared_mailboxes', 'qa_handshake',
+                                        'preprod_deploy_date', 'prod_deploy_date', 'warranty_end_date',
+                                        'comments', 'documentation', 'modified', 'path'
+                                      ];
+                                      const csvContent = templateFields.join(',') + '\n' + templateFields.map(field => {
+                                        const sampleData = {
+                                          air_id: 'AIR-2024-001',
+                                          name: 'Sample Automation Process',
+                                          type: 'RPA',
+                                          brief_description: 'Automated invoice processing system',
+                                          coe_fed: 'Finance',
+                                          complexity: 'Medium',
+                                          tool_version: 'UiPath 2023.10',
+                                          process_details: 'Processes invoices from email attachments',
+                                          object_details: 'PDF extraction and validation',
+                                          queue: 'Invoice_Processing_Queue',
+                                          shared_folders: '\\\\server\\automation\\invoices',
+                                          shared_mailboxes: 'automation.invoices@company.com',
+                                          qa_handshake: 'Yes',
+                                          preprod_deploy_date: '2024-01-15',
+                                          prod_deploy_date: '2024-01-30',
+                                          warranty_end_date: '2024-12-31',
+                                          comments: 'Requires daily monitoring',
+                                          documentation: 'https://docs.company.com/automation/air-2024-001',
+                                          modified: '2024-01-30',
+                                          path: 'C:\\Automations\\InvoiceProcessing'
+                                        };
+                                        return sampleData[field] || '';
+                                      }).join(',');
+                                      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                                      const url = URL.createObjectURL(blob);
+                                      const link = document.createElement('a');
+                                      link.href = url;
+                                      link.download = 'automation_template.csv';
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                      URL.revokeObjectURL(url);
+                                      setShowImportDropdown(false);
+                                    }}
+                                    className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                                  >
+                                    CSV
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      // JSON template download
+                                      const sampleData = {
+                                        air_id: 'AIR-2024-001',
+                                        name: 'Sample Automation Process',
+                                        type: 'RPA',
+                                        brief_description: 'Automated invoice processing system',
+                                        coe_fed: 'Finance',
+                                        complexity: 'Medium',
+                                        tool_version: 'UiPath 2023.10',
+                                        process_details: 'Processes invoices from email attachments',
+                                        object_details: 'PDF extraction and validation',
+                                        queue: 'Invoice_Processing_Queue',
+                                        shared_folders: '\\\\server\\automation\\invoices',
+                                        shared_mailboxes: 'automation.invoices@company.com',
+                                        qa_handshake: 'Yes',
+                                        preprod_deploy_date: '2024-01-15',
+                                        prod_deploy_date: '2024-01-30',
+                                        warranty_end_date: '2024-12-31',
+                                        comments: 'Requires daily monitoring',
+                                        documentation: 'https://docs.company.com/automation/air-2024-001',
+                                        modified: '2024-01-30',
+                                        path: 'C:\\Automations\\InvoiceProcessing'
+                                      };
+                                      const jsonContent = JSON.stringify([sampleData], null, 2);
+                                      const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+                                      const url = URL.createObjectURL(blob);
+                                      const link = document.createElement('a');
+                                      link.href = url;
+                                      link.download = 'automation_template.json';
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                      URL.revokeObjectURL(url);
+                                      setShowImportDropdown(false);
+                                    }}
+                                    className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                                  >
+                                    JSON
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      // Excel template download
+                                      const templateFields = [
+                                        'air_id', 'name', 'type', 'brief_description', 'coe_fed', 'complexity',
+                                        'tool_version', 'process_details', 'object_details', 'queue',
+                                        'shared_folders', 'shared_mailboxes', 'qa_handshake',
+                                        'preprod_deploy_date', 'prod_deploy_date', 'warranty_end_date',
+                                        'comments', 'documentation', 'modified', 'path'
+                                      ];
+                                      const excelContent = templateFields.join('\t') + '\n' + templateFields.map(field => {
+                                        const sampleData = {
+                                          air_id: 'AIR-2024-001',
+                                          name: 'Sample Automation Process',
+                                          type: 'RPA',
+                                          brief_description: 'Automated invoice processing system',
+                                          coe_fed: 'Finance',
+                                          complexity: 'Medium',
+                                          tool_version: 'UiPath 2023.10',
+                                          process_details: 'Processes invoices from email attachments',
+                                          object_details: 'PDF extraction and validation',
+                                          queue: 'Invoice_Processing_Queue',
+                                          shared_folders: '\\\\server\\automation\\invoices',
+                                          shared_mailboxes: 'automation.invoices@company.com',
+                                          qa_handshake: 'Yes',
+                                          preprod_deploy_date: '2024-01-15',
+                                          prod_deploy_date: '2024-01-30',
+                                          warranty_end_date: '2024-12-31',
+                                          comments: 'Requires daily monitoring',
+                                          documentation: 'https://docs.company.com/automation/air-2024-001',
+                                          modified: '2024-01-30',
+                                          path: 'C:\\Automations\\InvoiceProcessing'
+                                        };
+                                        return sampleData[field] || '';
+                                      }).join('\t');
+                                      const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+                                      const url = URL.createObjectURL(blob);
+                                      const link = document.createElement('a');
+                                      link.href = url;
+                                      link.download = 'automation_template.xls';
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                      URL.revokeObjectURL(url);
+                                      setShowImportDropdown(false);
+                                    }}
+                                    className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                                  >
+                                    Excel
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1407,25 +1519,6 @@ export default function AutomationDatabase() {
                       <span className="text-green-600 ml-1">• {selectedItems.size} selected</span>
                     )}
                   </p>
-                  {/* Small CSV Import Button */}
-                  <div className="relative">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".csv"
-                      onChange={handleCsvImport}
-                      className="hidden"
-                    />
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isImporting}
-                      className="flex items-center px-2 py-1 text-xs text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
-                      title="Import CSV (for testing)"
-                    >
-                      <DocumentArrowUpIcon className="h-3 w-3 mr-1" />
-                      {isImporting ? 'Importing...' : 'CSV'}
-                    </button>
-                  </div>
                 </div>
                 <div className="text-sm text-gray-500">
                   Last updated: {new Date().toLocaleDateString()}
@@ -1451,6 +1544,15 @@ export default function AutomationDatabase() {
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         onSubmit={handleCreateAutomation}
+      />
+
+      {/* Import Modal */}
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImport={handleEnhancedImport}
+        existingAutomations={automations}
+        defaultFormat={importFormat}
       />
     </div>
   );
