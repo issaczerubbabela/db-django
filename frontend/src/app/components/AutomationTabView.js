@@ -147,27 +147,6 @@ export default function AutomationTabView({
     }
   };
 
-  const highlightSearchTerm = (text, searchTerm) => {
-    if (!text || !searchTerm.trim()) return text;
-    
-    const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    const parts = text.split(regex);
-    
-    return parts.map((part, index) => {
-      if (part.toLowerCase() === searchTerm.toLowerCase()) {
-        return (
-          <mark 
-            key={index} 
-            className="bg-yellow-200 text-yellow-900 px-1 rounded font-medium"
-          >
-            {part}
-          </mark>
-        );
-      }
-      return part;
-    });
-  };
-
   const renderTabContent = () => {
     if (!selectedAutomation) return null;
 
@@ -178,15 +157,15 @@ export default function AutomationTabView({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">AIR ID</label>
-                <p className="text-lg font-semibold text-blue-600">{highlightSearchTerm(selectedAutomation.air_id || 'N/A', searchTerm)}</p>
+                <p className="text-lg font-semibold text-blue-600">{selectedAutomation.air_id || 'N/A'}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Automation Name</label>
-                <p className="text-lg font-semibold text-gray-900">{highlightSearchTerm(selectedAutomation.name || 'N/A', searchTerm)}</p>
+                <p className="text-lg font-semibold text-gray-900">{selectedAutomation.name || 'N/A'}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Type</label>
-                <p className="text-gray-900">{highlightSearchTerm(selectedAutomation.type || 'N/A', searchTerm)}</p>
+                <p className="text-gray-900">{selectedAutomation.type || 'N/A'}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Complexity</label>
@@ -200,32 +179,32 @@ export default function AutomationTabView({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">COE/FED</label>
-                <p className="text-gray-900">{highlightSearchTerm(selectedAutomation.coe_fed || 'N/A', searchTerm)}</p>
+                <p className="text-gray-900">{selectedAutomation.coe_fed || 'N/A'}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Queue</label>
-                <p className="text-gray-900">{highlightSearchTerm(selectedAutomation.queue || 'N/A', searchTerm)}</p>
+                <p className="text-gray-900">{selectedAutomation.queue || 'N/A'}</p>
               </div>
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-500 mb-2">Brief Description</label>
               <p className="text-gray-900 bg-gray-50 p-3 rounded-md">
-                {highlightSearchTerm(selectedAutomation.brief_description || 'No description available', searchTerm)}
+                {selectedAutomation.brief_description || 'No description available'}
               </p>
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-500 mb-2">Process Details</label>
               <p className="text-gray-900 bg-gray-50 p-3 rounded-md">
-                {highlightSearchTerm(selectedAutomation.process_details || 'No process details available', searchTerm)}
+                {selectedAutomation.process_details || 'No process details available'}
               </p>
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-500 mb-2">Object Details</label>
               <p className="text-gray-900 bg-gray-50 p-3 rounded-md">
-                {highlightSearchTerm(selectedAutomation.object_details || 'No object details available', searchTerm)}
+                {selectedAutomation.object_details || 'No object details available'}
               </p>
             </div>
           </div>
@@ -237,26 +216,26 @@ export default function AutomationTabView({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Tool</label>
-                <p className="text-gray-900">{highlightSearchTerm(selectedAutomation.tool || 'N/A', searchTerm)}</p>
+                <p className="text-gray-900">{selectedAutomation.tool || 'N/A'}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Tool Version</label>
-                <p className="text-gray-900">{highlightSearchTerm(selectedAutomation.tool_version || 'N/A', searchTerm)}</p>
+                <p className="text-gray-900">{selectedAutomation.tool_version || 'N/A'}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Shared Folders</label>
-                <p className="text-gray-900">{highlightSearchTerm(selectedAutomation.shared_folders || 'N/A', searchTerm)}</p>
+                <p className="text-gray-900">{selectedAutomation.shared_folders || 'N/A'}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Shared Mailboxes</label>
-                <p className="text-gray-900">{highlightSearchTerm(selectedAutomation.shared_mailboxes || 'N/A', searchTerm)}</p>
+                <p className="text-gray-900">{selectedAutomation.shared_mailboxes || 'N/A'}</p>
               </div>
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-500 mb-2">Documentation</label>
               <p className="text-gray-900 bg-gray-50 p-3 rounded-md">
-                {highlightSearchTerm(selectedAutomation.documentation || 'No documentation available', searchTerm)}
+                {selectedAutomation.documentation || 'No documentation available'}
               </p>
             </div>
           </div>
@@ -273,8 +252,8 @@ export default function AutomationTabView({
                     <div className="flex items-center space-x-3">
                       <UserIcon className="h-5 w-5 text-gray-400" />
                       <div>
-                        <p className="font-medium text-gray-900">{highlightSearchTerm(person.name || 'N/A', searchTerm)}</p>
-                        <p className="text-sm text-gray-500">{highlightSearchTerm(person.role || 'N/A', searchTerm)}</p>
+                        <p className="font-medium text-gray-900">{person.name || 'N/A'}</p>
+                        <p className="text-sm text-gray-500">{person.role || 'N/A'}</p>
                       </div>
                     </div>
                   </div>
@@ -287,7 +266,7 @@ export default function AutomationTabView({
             <div>
               <label className="block text-sm font-medium text-gray-500 mb-2">Test Data SPOC</label>
               <p className="text-gray-900 bg-gray-50 p-3 rounded-md">
-                {highlightSearchTerm(selectedAutomation.test_data?.spoc || 'N/A', searchTerm)}
+                {selectedAutomation.test_data?.spoc || 'N/A'}
               </p>
             </div>
           </div>
@@ -304,15 +283,15 @@ export default function AutomationTabView({
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1">Type</label>
-                        <p className="text-sm text-gray-900">{highlightSearchTerm(env.type || 'N/A', searchTerm)}</p>
+                        <p className="text-sm text-gray-900">{env.type || 'N/A'}</p>
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1">VDI</label>
-                        <p className="text-sm text-gray-900">{highlightSearchTerm(env.vdi || 'N/A', searchTerm)}</p>
+                        <p className="text-sm text-gray-900">{env.vdi || 'N/A'}</p>
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1">Service Account</label>
-                        <p className="text-sm text-gray-900">{highlightSearchTerm(env.service_account || 'N/A', searchTerm)}</p>
+                        <p className="text-sm text-gray-900">{env.service_account || 'N/A'}</p>
                       </div>
                     </div>
                   </div>
@@ -342,7 +321,7 @@ export default function AutomationTabView({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Modified By</label>
-                <p className="text-gray-900">{highlightSearchTerm(selectedAutomation.modified_by || 'N/A', searchTerm)}</p>
+                <p className="text-gray-900">{selectedAutomation.modified_by || 'N/A'}</p>
               </div>
             </div>
           </div>
@@ -382,25 +361,25 @@ export default function AutomationTabView({
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-2">Artifacts Link</label>
                 <p className="text-gray-900 bg-gray-50 p-3 rounded-md">
-                  {highlightSearchTerm(selectedAutomation.artifacts?.artifacts_link || 'N/A', searchTerm)}
+                  {selectedAutomation.artifacts?.artifacts_link || 'N/A'}
                 </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-2">Code Review</label>
                 <p className="text-gray-900 bg-gray-50 p-3 rounded-md">
-                  {highlightSearchTerm(selectedAutomation.artifacts?.code_review || 'N/A', searchTerm)}
+                  {selectedAutomation.artifacts?.code_review || 'N/A'}
                 </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-2">Demo</label>
                 <p className="text-gray-900 bg-gray-50 p-3 rounded-md">
-                  {highlightSearchTerm(selectedAutomation.artifacts?.demo || 'N/A', searchTerm)}
+                  {selectedAutomation.artifacts?.demo || 'N/A'}
                 </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-2">Ramp-up Issue List</label>
                 <p className="text-gray-900 bg-gray-50 p-3 rounded-md">
-                  {highlightSearchTerm(selectedAutomation.artifacts?.rampup_issue_list || 'N/A', searchTerm)}
+                  {selectedAutomation.artifacts?.rampup_issue_list || 'N/A'}
                 </p>
               </div>
             </div>
@@ -408,7 +387,7 @@ export default function AutomationTabView({
             <div>
               <label className="block text-sm font-medium text-gray-500 mb-2">Comments</label>
               <p className="text-gray-900 bg-gray-50 p-3 rounded-md">
-                {highlightSearchTerm(selectedAutomation.comments || 'No comments available', searchTerm)}
+                {selectedAutomation.comments || 'No comments available'}
               </p>
             </div>
           </div>
@@ -650,13 +629,13 @@ export default function AutomationTabView({
                   }`}
                 >
                   <div className="text-sm font-medium text-gray-900 truncate">
-                    {highlightSearchTerm(automation.name, sidebarSearchTerm)}
+                    {automation.name}
                   </div>
                   <div className="text-xs text-blue-600 mt-1">
-                    {highlightSearchTerm(automation.air_id, sidebarSearchTerm)}
+                    {automation.air_id}
                   </div>
                   <div className="text-xs text-gray-500 mt-1 truncate">
-                    {highlightSearchTerm(automation.type, sidebarSearchTerm)}
+                    {automation.type}
                   </div>
                 </div>
               ))}
@@ -877,11 +856,11 @@ export default function AutomationTabView({
           <div className="bg-white border-b border-gray-200">
             <div className="flex items-center justify-between px-4 py-2">
               <h2 className="text-lg font-semibold text-gray-900 truncate">
-                {highlightSearchTerm(selectedAutomation.name, searchTerm)}
+                {selectedAutomation.name}
               </h2>
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                  {highlightSearchTerm(selectedAutomation.air_id, searchTerm)}
+                  {selectedAutomation.air_id}
                 </span>
                 <button
                   onClick={() => onDeleteAutomation(selectedAutomation.air_id)}

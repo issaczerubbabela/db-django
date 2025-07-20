@@ -96,9 +96,9 @@ class AutomationSearchService:
                         a.created_at,
                         a.updated_at,
                         fts.rank,
-                        snippet(automations_fts, 1, '<mark>', '</mark>', '...', 64) as name_snippet,
-                        snippet(automations_fts, 3, '<mark>', '</mark>', '...', 64) as description_snippet,
-                        snippet(automations_fts, -1, '<mark>', '</mark>', '...', 64) as full_snippet
+                        a.name as name_snippet,
+                        a.brief_description as description_snippet,
+                        COALESCE(a.name || ' ' || a.brief_description, '') as full_snippet
                     FROM automations_fts fts
                     JOIN automations a ON a.air_id = fts.air_id
                     WHERE automations_fts MATCH ?
@@ -109,12 +109,6 @@ class AutomationSearchService:
                 columns = [col[0] for col in cursor.description]
                 for row in cursor.fetchall():
                     result = dict(zip(columns, row))
-                    # Add highlighting information
-                    result['highlighted_fields'] = AutomationSearchService._extract_highlighted_fields(
-                        result.get('name_snippet', ''),
-                        result.get('description_snippet', ''),
-                        query
-                    )
                     results.append(result)
         
         except Exception as e:
@@ -215,7 +209,6 @@ class AutomationSearchService:
                         'test_data_spoc': auto.test_data.spoc.name if hasattr(auto, 'test_data') and auto.test_data and auto.test_data.spoc else None,
                         'artifacts_link': auto.artifacts.artifacts_link if hasattr(auto, 'artifacts') and auto.artifacts else None,
                         'rank': 0.5,  # Lower rank for fuzzy matches
-                        'highlighted_fields': AutomationSearchService._highlight_fuzzy_matches(auto, original_words)
                     }
                     results.append(result)
                 
@@ -285,7 +278,6 @@ class AutomationSearchService:
                 'tool_name': auto.tool.name if auto.tool else None,
                 'modified_by_name': auto.modified_by.name if auto.modified_by else None,
                 'rank': 1.0,
-                'highlighted_fields': []
             }
             for auto in queryset
         ]
@@ -355,101 +347,6 @@ class AutomationSearchService:
             print(f"Spell suggestion error: {e}")
         
         return suggestions
-    
-    @staticmethod
-    def _extract_highlighted_fields(name_snippet, description_snippet, query):
-        """
-        Extract which fields contain highlights for the frontend.
-        """
-        highlighted = []
-        
-        if '<mark>' in name_snippet:
-            highlighted.append('name')
-        
-        if '<mark>' in description_snippet:
-            highlighted.append('brief_description')
-        
-        return highlighted
-    
-    @staticmethod
-    def _highlight_fuzzy_matches(automation, words):
-        """
-        Determine which fields contain fuzzy matches.
-        """
-        highlighted = []
-        
-        # Define all searchable fields with their database field names
-        searchable_fields = {
-            'air_id': automation.air_id,
-            'name': automation.name,
-            'type': automation.type,
-            'brief_description': automation.brief_description,
-            'coe_fed': automation.coe_fed,
-            'complexity': automation.complexity,
-            'tool_version': automation.tool_version,
-            'process_details': automation.process_details,
-            'object_details': automation.object_details,
-            'queue': automation.queue,
-            'shared_folders': automation.shared_folders,
-            'shared_mailboxes': automation.shared_mailboxes,
-            'qa_handshake': automation.qa_handshake,
-            'comments': automation.comments,
-            'documentation': automation.documentation,
-            'path': automation.path,
-        }
-        
-        # Check each word against each field
-        for word in words:
-            word_lower = word.lower()
-            
-            for field_name, field_value in searchable_fields.items():
-                if field_value and word_lower in str(field_value).lower():
-                    if field_name not in highlighted:
-                        highlighted.append(field_name)
-            
-            # Check related fields
-            if hasattr(automation, 'tool') and automation.tool:
-                if word_lower in automation.tool.name.lower():
-                    highlighted.append('tool_name')
-            
-            if hasattr(automation, 'modified_by') and automation.modified_by:
-                if word_lower in automation.modified_by.name.lower():
-                    highlighted.append('modified_by_name')
-            
-            # Check people roles (if available in the automation object)
-            try:
-                for person_role in automation.people_roles.all():
-                    if (word_lower in person_role.person.name.lower() or 
-                        word_lower in person_role.role.lower()):
-                        highlighted.append('people')
-                        break
-            except:
-                pass
-            
-            # Check environments
-            try:
-                for env in automation.environments.all():
-                    if (word_lower in str(env.type).lower() or
-                        word_lower in str(env.vdi or '').lower() or
-                        word_lower in str(env.service_account or '').lower()):
-                        highlighted.append('environments')
-                        break
-            except:
-                pass
-            
-            # Check artifacts
-            try:
-                if hasattr(automation, 'artifacts') and automation.artifacts:
-                    artifacts = automation.artifacts
-                    if (word_lower in str(artifacts.artifacts_link or '').lower() or
-                        word_lower in str(artifacts.code_review or '').lower() or
-                        word_lower in str(artifacts.demo or '').lower() or
-                        word_lower in str(artifacts.rampup_issue_list or '').lower()):
-                        highlighted.append('artifacts')
-            except:
-                pass
-        
-        return highlighted
     
     @staticmethod
     def _generate_typo_variations(word):
