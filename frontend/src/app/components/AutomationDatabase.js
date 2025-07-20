@@ -88,6 +88,15 @@ export default function AutomationDatabase() {
         const data = await response.json();
         setSearchResults(data);
         setShowSearchResults(true);
+        
+        // Auto-open sidebar for the most relevant result
+        if (data && (data.exact_matches?.length > 0 || data.fuzzy_matches?.length > 0)) {
+          const topResult = data.exact_matches?.[0] || data.fuzzy_matches?.[0];
+          if (topResult) {
+            setSelectedAutomation(topResult);
+            setIsSidebarOpen(true);
+          }
+        }
       } else {
         console.error('Search failed');
         setSearchResults(null);
@@ -107,12 +116,58 @@ export default function AutomationDatabase() {
     setSearchResults(null);
     setShowSearchResults(false);
     setIsSearching(false);
+    // Close sidebar if it was opened for a search result
+    if (selectedAutomation && searchResults) {
+      const searchResultIds = new Set([
+        ...(searchResults.exact_matches || []).map(item => item.air_id),
+        ...(searchResults.fuzzy_matches || []).map(item => item.air_id)
+      ]);
+      if (searchResultIds.has(selectedAutomation.air_id)) {
+        setIsSidebarOpen(false);
+        setSelectedAutomation(null);
+      }
+    }
   };
 
   const handleSearchResultClick = (automation) => {
     setSelectedAutomation(automation);
     setIsSidebarOpen(true);
     setShowSearchResults(false);
+  };
+
+  // Helper function to get search match type for an automation
+  const getSearchMatchType = (automation) => {
+    if (!searchResults) return null;
+    
+    const isExactMatch = searchResults.exact_matches?.some(match => match.air_id === automation.air_id);
+    const isFuzzyMatch = searchResults.fuzzy_matches?.some(match => match.air_id === automation.air_id);
+    
+    if (isExactMatch) return 'exact';
+    if (isFuzzyMatch) return 'fuzzy';
+    return null;
+  };
+
+  // Helper function to get search result data for an automation
+  const getSearchResultData = (automation) => {
+    if (!searchResults) return null;
+    
+    const exactMatch = searchResults.exact_matches?.find(match => match.air_id === automation.air_id);
+    const fuzzyMatch = searchResults.fuzzy_matches?.find(match => match.air_id === automation.air_id);
+    
+    return exactMatch || fuzzyMatch || null;
+  };
+
+  // Helper function to render highlighted text
+  const renderHighlightedText = (text, searchData, field) => {
+    if (!searchData || !text) return text;
+    
+    // Check if we have snippet data for this field
+    const snippetField = `${field}_snippet`;
+    if (searchData[snippetField]) {
+      return <span dangerouslySetInnerHTML={{ __html: searchData[snippetField] }} />;
+    }
+    
+    return text;
   };
 
   // Clear selections when view changes
@@ -588,15 +643,26 @@ export default function AutomationDatabase() {
 
   // Determine which automations to show based on search results or normal filtering
   const getDisplayAutomations = () => {
-    // If we have active search results and no filters, show search results
-    if (showSearchResults && searchResults && Object.values(filters).every(filter => filter === '')) {
-      return [...(searchResults.exact_matches || []), ...(searchResults.fuzzy_matches || [])];
+    // If we have search results, prioritize them but also include filtered results
+    if (searchResults && searchTerm && Object.values(filters).every(filter => filter === '')) {
+      // Get all search result IDs for easy lookup
+      const searchResultIds = new Set([
+        ...(searchResults.exact_matches || []).map(item => item.air_id),
+        ...(searchResults.fuzzy_matches || []).map(item => item.air_id)
+      ]);
+      
+      // Return search results first, then other automations not in search results
+      const searchMatches = [...(searchResults.exact_matches || []), ...(searchResults.fuzzy_matches || [])];
+      const otherAutomations = (Array.isArray(automations) ? automations : [])
+        .filter(automation => !searchResultIds.has(automation.air_id));
+      
+      return [...searchMatches, ...otherAutomations];
     }
     
-    // Otherwise, use normal filtering
+    // Otherwise, use normal filtering with search term as a simple text filter
     return (Array.isArray(automations) ? automations : []).filter(automation => {
-      // Search term filter (only apply if not using search results)
-      const matchesSearch = showSearchResults || !searchTerm || (
+      // Search term filter (basic text search when not using FTS)
+      const matchesSearch = !searchTerm || (
         automation.air_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         automation.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         automation.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -648,6 +714,26 @@ export default function AutomationDatabase() {
   const handleRowClick = (automation) => {
     setSelectedAutomation(automation);
     setIsSidebarOpen(true);
+    
+    // If this is a search result, scroll to the relevant section after a brief delay
+    if (searchResults && searchTerm) {
+      const searchData = getSearchResultData(automation);
+      if (searchData) {
+        setTimeout(() => {
+          // Determine which field has a match and scroll to it
+          if (searchData.name_snippet || searchData.name) {
+            const element = document.getElementById('sidebar-name-section');
+            if (element) element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } else if (searchData.description_snippet || searchData.brief_description) {
+            const element = document.getElementById('sidebar-description-section');
+            if (element) element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } else if (searchData.air_id_snippet || searchData.air_id) {
+            const element = document.getElementById('sidebar-header');
+            if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 300); // Wait for sidebar to open
+      }
+    }
   };
 
   const closeSidebar = () => {
@@ -1095,179 +1181,48 @@ export default function AutomationDatabase() {
                       </button>
                     )}
                     
-                    {/* Search Results Dropdown */}
-                    {showSearchResults && searchResults && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-md shadow-lg border border-gray-200 z-30 max-h-96 overflow-y-auto">
-                        {/* Search Status */}
-                        <div className="p-3 border-b border-gray-200 bg-gray-50">
-                          <div className="flex items-center justify-between">
-                            <div className="text-sm text-gray-600">
-                              {isSearching && (
-                                <span className="flex items-center">
-                                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                  </svg>
-                                  Searching...
-                                </span>
-                              )}
-                              {!isSearching && searchResults && (
-                                <span>
-                                  Found {searchResults.total_count} result{searchResults.total_count !== 1 ? 's' : ''} for &ldquo;{searchResults.query}&rdquo;
-                                </span>
-                              )}
-                            </div>
-                            <button
-                              onClick={() => setShowSearchResults(false)}
-                              className="text-gray-400 hover:text-gray-600"
-                            >
-                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
+                    {/* Search Status */}
+                    {isSearching && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-md shadow-sm border border-gray-200 z-30 p-3">
+                        <span className="flex items-center text-sm text-gray-600">
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Searching...
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* Search Results Summary */}
+                    {!isSearching && searchResults && searchTerm && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-md shadow-sm border border-gray-200 z-30 p-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">
+                            Found {searchResults.total_count} result{searchResults.total_count !== 1 ? 's' : ''} for &ldquo;{searchResults.query}&rdquo;
+                            {searchResults.exact_matches?.length > 0 && (
+                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                {searchResults.exact_matches.length} exact
+                              </span>
+                            )}
+                            {searchResults.fuzzy_matches?.length > 0 && (
+                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                {searchResults.fuzzy_matches.length} similar
+                              </span>
+                            )}
+                          </span>
+                          <button
+                            onClick={() => {
+                              setSearchResults(null);
+                              setShowSearchResults(false);
+                            }}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
                         </div>
-
-                        {/* Search Results */}
-                        {!isSearching && searchResults && (
-                          <div className="max-h-72 overflow-y-auto">
-                            {/* Exact Matches */}
-                            {searchResults.exact_matches && searchResults.exact_matches.length > 0 && (
-                              <div>
-                                <div className="px-3 py-2 bg-green-50 border-b border-gray-200">
-                                  <h4 className="text-sm font-medium text-green-800">Exact Matches ({searchResults.exact_matches.length})</h4>
-                                </div>
-                                {searchResults.exact_matches.map((automation) => (
-                                  <div
-                                    key={automation.air_id}
-                                    onClick={() => handleSearchResultClick(automation)}
-                                    className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                                  >
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex-1">
-                                        <div className="flex items-center space-x-2">
-                                          <span className="font-medium text-gray-900">{automation.air_id}</span>
-                                          <span className="text-gray-500">-</span>
-                                          <span 
-                                            className="text-gray-800"
-                                            dangerouslySetInnerHTML={{ 
-                                              __html: automation.name_snippet || automation.name 
-                                            }}
-                                          />
-                                        </div>
-                                        <div className="mt-1">
-                                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getComplexityColor(automation.complexity || 'unknown')}`}>
-                                            {automation.type}
-                                          </span>
-                                          {automation.complexity && (
-                                            <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getComplexityColor(automation.complexity)}`}>
-                                              {automation.complexity}
-                                            </span>
-                                          )}
-                                        </div>
-                                        {automation.description_snippet && (
-                                          <div 
-                                            className="mt-1 text-sm text-gray-600"
-                                            dangerouslySetInnerHTML={{ 
-                                              __html: automation.description_snippet 
-                                            }}
-                                          />
-                                        )}
-                                      </div>
-                                      <div className="ml-3">
-                                        <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* Fuzzy Matches */}
-                            {searchResults.fuzzy_matches && searchResults.fuzzy_matches.length > 0 && (
-                              <div>
-                                <div className="px-3 py-2 bg-yellow-50 border-b border-gray-200">
-                                  <h4 className="text-sm font-medium text-yellow-800">Similar Matches ({searchResults.fuzzy_matches.length})</h4>
-                                </div>
-                                {searchResults.fuzzy_matches.map((automation) => (
-                                  <div
-                                    key={automation.air_id}
-                                    onClick={() => handleSearchResultClick(automation)}
-                                    className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                                  >
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex-1">
-                                        <div className="flex items-center space-x-2">
-                                          <span className="font-medium text-gray-900">{automation.air_id}</span>
-                                          <span className="text-gray-500">-</span>
-                                          <span className="text-gray-800">{automation.name}</span>
-                                        </div>
-                                        <div className="mt-1">
-                                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getComplexityColor(automation.complexity || 'unknown')}`}>
-                                            {automation.type}
-                                          </span>
-                                          {automation.complexity && (
-                                            <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getComplexityColor(automation.complexity)}`}>
-                                              {automation.complexity}
-                                            </span>
-                                          )}
-                                        </div>
-                                        {automation.brief_description && (
-                                          <div className="mt-1 text-sm text-gray-600 truncate">
-                                            {automation.brief_description}
-                                          </div>
-                                        )}
-                                      </div>
-                                      <div className="ml-3">
-                                        <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* No Results */}
-                            {searchResults.total_count === 0 && (
-                              <div className="p-6 text-center">
-                                <div className="text-gray-500">
-                                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                  </svg>
-                                  <h3 className="mt-2 text-sm font-medium text-gray-900">No results found</h3>
-                                  <p className="mt-1 text-sm text-gray-500">
-                                    Try adjusting your search terms or check the spelling.
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Spell Suggestions */}
-                            {searchResults.suggestions && searchResults.suggestions.length > 0 && (
-                              <div className="p-3 bg-blue-50 border-t border-gray-200">
-                                <h4 className="text-sm font-medium text-blue-800 mb-2">Did you mean:</h4>
-                                <div className="flex flex-wrap gap-2">
-                                  {searchResults.suggestions.slice(0, 3).map((suggestion, index) => (
-                                    <button
-                                      key={index}
-                                      onClick={() => {
-                                        const newQuery = searchTerm.replace(suggestion.original, suggestion.suggestion);
-                                        setSearchTerm(newQuery);
-                                      }}
-                                      className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
-                                    >
-                                      {suggestion.suggestion}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
@@ -1436,83 +1391,169 @@ export default function AutomationDatabase() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredAutomations.map((automation) => (
-                          <tr 
-                            key={automation.air_id}
-                            className={`hover:bg-gray-50 cursor-pointer transition-colors ${
-                              selectedAutomation?.air_id === automation.air_id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
-                            } ${
-                              selectedItems.has(automation.air_id) ? 'bg-blue-25' : ''
-                            }`}
-                            onClick={() => handleRowClick(automation)}
-                          >
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <input
-                                type="checkbox"
-                                checked={selectedItems.has(automation.air_id)}
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  handleSelectItem(automation.air_id);
-                                }}
-                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                              />
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                              {renderEditableCell(automation, 'air_id', automation.air_id, 'font-medium text-blue-600')}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                              {renderEditableCell(automation, 'name', automation.name, 'text-gray-900 font-medium')}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {renderEditableCell(automation, 'type', automation.type, 'text-gray-500')}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {isEditing(automation.air_id, 'complexity') ? (
-                                renderEditableCell(automation, 'complexity', automation.complexity)
-                              ) : (
-                                <div 
-                                  className="cursor-pointer hover:bg-blue-50 p-1 rounded group"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    startEdit(automation.air_id, 'complexity', automation.complexity);
-                                  }}
-                                  title="Click to edit"
-                                >
-                                  <div className="flex items-center justify-between">
-                                    {automation.complexity ? (
-                                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getComplexityColor(automation.complexity)}`}>
-                                        {automation.complexity}
-                                      </span>
-                                    ) : (
-                                      <span className="text-gray-400 italic">Click to add...</span>
-                                    )}
-                                    <svg className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                    </svg>
-                                  </div>
+                        {filteredAutomations.map((automation) => {
+                          const matchType = getSearchMatchType(automation);
+                          const searchData = getSearchResultData(automation);
+                          
+                          return (
+                            <tr 
+                              key={automation.air_id}
+                              className={`hover:bg-gray-50 cursor-pointer transition-colors ${
+                                selectedAutomation?.air_id === automation.air_id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                              } ${
+                                selectedItems.has(automation.air_id) ? 'bg-blue-25' : ''
+                              } ${
+                                matchType === 'exact' ? 'ring-2 ring-green-200 bg-green-50' : 
+                                matchType === 'fuzzy' ? 'ring-2 ring-yellow-200 bg-yellow-50' : ''
+                              }`}
+                              onClick={() => handleRowClick(automation)}
+                            >
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedItems.has(automation.air_id)}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      handleSelectItem(automation.air_id);
+                                    }}
+                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                  />
+                                  {matchType && (
+                                    <span 
+                                      className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                                        matchType === 'exact' 
+                                          ? 'bg-green-100 text-green-800' 
+                                          : 'bg-yellow-100 text-yellow-800'
+                                      }`}
+                                      title={matchType === 'exact' ? 'Exact search match' : 'Similar search match'}
+                                    >
+                                      {matchType === 'exact' ? '●' : '◐'}
+                                    </span>
+                                  )}
                                 </div>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-500 max-w-md">
-                              {renderEditableCell(automation, 'brief_description', automation.brief_description, 'text-gray-500 max-w-md truncate')}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <div className="flex items-center space-x-2">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteAutomation(automation.air_id);
-                                  }}
-                                  className="text-red-400 hover:text-red-600 transition-colors p-1"
-                                  title="Delete automation"
-                                >
-                                  <TrashIcon className="h-4 w-4" />
-                                </button>
-                                <ChevronRightIcon className="h-5 w-5 text-gray-400" />
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                                {isEditing(automation.air_id, 'air_id') ? (
+                                  renderEditableCell(automation, 'air_id', automation.air_id, 'font-medium text-blue-600')
+                                ) : (
+                                  <div 
+                                    className="cursor-pointer hover:bg-blue-50 p-1 rounded group font-medium text-blue-600"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      startEdit(automation.air_id, 'air_id', automation.air_id);
+                                    }}
+                                    title="Click to edit"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span>
+                                        {renderHighlightedText(automation.air_id, searchData, 'air_id')}
+                                      </span>
+                                      <svg className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                                {isEditing(automation.air_id, 'name') ? (
+                                  renderEditableCell(automation, 'name', automation.name, 'text-gray-900 font-medium')
+                                ) : (
+                                  <div 
+                                    className="cursor-pointer hover:bg-blue-50 p-1 rounded group text-gray-900 font-medium"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      startEdit(automation.air_id, 'name', automation.name);
+                                    }}
+                                    title="Click to edit"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span>
+                                        {renderHighlightedText(automation.name, searchData, 'name')}
+                                      </span>
+                                      <svg className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {renderEditableCell(automation, 'type', automation.type, 'text-gray-500')}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {isEditing(automation.air_id, 'complexity') ? (
+                                  renderEditableCell(automation, 'complexity', automation.complexity)
+                                ) : (
+                                  <div 
+                                    className="cursor-pointer hover:bg-blue-50 p-1 rounded group"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      startEdit(automation.air_id, 'complexity', automation.complexity);
+                                    }}
+                                    title="Click to edit"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      {automation.complexity ? (
+                                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getComplexityColor(automation.complexity)}`}>
+                                          {automation.complexity}
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-400 italic">Click to add...</span>
+                                      )}
+                                      <svg className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-500 max-w-md">
+                                {isEditing(automation.air_id, 'brief_description') ? (
+                                  renderEditableCell(automation, 'brief_description', automation.brief_description, 'text-gray-500 max-w-md truncate')
+                                ) : (
+                                  <div 
+                                    className="cursor-pointer hover:bg-blue-50 p-1 rounded group text-gray-500 max-w-md truncate"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      startEdit(automation.air_id, 'brief_description', automation.brief_description);
+                                    }}
+                                    title="Click to edit"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className={automation.brief_description ? '' : 'text-gray-400 italic'}>
+                                        {searchData?.description_snippet ? (
+                                          <span dangerouslySetInnerHTML={{ __html: searchData.description_snippet }} />
+                                        ) : (
+                                          automation.brief_description || 'Click to add...'
+                                        )}
+                                      </span>
+                                      <svg className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <div className="flex items-center space-x-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteAutomation(automation.air_id);
+                                    }}
+                                    className="text-red-400 hover:text-red-600 transition-colors p-1"
+                                    title="Delete automation"
+                                  >
+                                    <TrashIcon className="h-4 w-4" />
+                                  </button>
+                                  <ChevronRightIcon className="h-5 w-5 text-gray-400" />
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                     
@@ -1539,6 +1580,21 @@ export default function AutomationDatabase() {
                     Showing {filteredAutomations.length} of {automations.length} automations
                     {hasActiveFilters && (
                       <span className="text-blue-600 ml-1">(filtered)</span>
+                    )}
+                    {searchResults && searchTerm && (
+                      <span className="text-purple-600 ml-1">
+                        • Search: {searchResults.total_count} result{searchResults.total_count !== 1 ? 's' : ''}
+                        {searchResults.exact_matches?.length > 0 && (
+                          <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            {searchResults.exact_matches.length} exact
+                          </span>
+                        )}
+                        {searchResults.fuzzy_matches?.length > 0 && (
+                          <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                            {searchResults.fuzzy_matches.length} similar
+                          </span>
+                        )}
+                      </span>
                     )}
                     {selectedItems.size > 0 && (
                       <span className="text-green-600 ml-1">• {selectedItems.size} selected</span>
@@ -1571,6 +1627,8 @@ export default function AutomationDatabase() {
               onClose={closeSidebar}
               automation={selectedAutomation}
               onDeleteAutomation={handleDeleteAutomation}
+              searchData={selectedAutomation ? getSearchResultData(selectedAutomation) : null}
+              searchTerm={searchTerm}
             />
           </div>
         </>

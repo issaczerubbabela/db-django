@@ -13,8 +13,21 @@ import {
   CheckCircleIcon
 } from '@heroicons/react/24/outline';
 
-export default function AutomationDetailsSidebar({ isOpen, onClose, automation, onDeleteAutomation }) {
+export default function AutomationDetailsSidebar({ isOpen, onClose, automation, onDeleteAutomation, searchData, searchTerm }) {
   if (!automation) return null;
+
+  // Helper function to render highlighted text
+  const renderHighlightedText = (text, field) => {
+    if (!searchData || !searchTerm || !text) return text;
+    
+    // Check if we have snippet data for this field
+    const snippetField = `${field}_snippet`;
+    if (searchData[snippetField]) {
+      return <span dangerouslySetInnerHTML={{ __html: searchData[snippetField] }} />;
+    }
+    
+    return text;
+  };
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
@@ -43,20 +56,37 @@ export default function AutomationDetailsSidebar({ isOpen, onClose, automation, 
 
   return (
     <div className={`h-full bg-white shadow-xl border-l border-gray-200 transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+      {/* Add custom styles for search highlighting */}
+      <style jsx>{`
+        :global(.search-highlight) {
+          background-color: #fef3c7 !important;
+          color: #92400e !important;
+          font-weight: 600;
+          padding: 0.125rem 0.25rem;
+          border-radius: 0.25rem;
+        }
+        :global(.sidebar-search-highlight) {
+          background-color: #ddd6fe !important;
+          color: #5b21b6 !important;
+          font-weight: 600;
+          padding: 0.125rem 0.25rem;
+          border-radius: 0.25rem;
+        }
+      `}</style>
       <div className="flex h-full flex-col overflow-y-scroll">
         {/* Header */}
-        <div className="bg-blue-600 px-6 py-6">
+        <div id="sidebar-header" className="bg-blue-600 px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <CogIcon className="h-8 w-8 text-white" />
               </div>
-              <div className="ml-3">
+              <div id="sidebar-name-section" className="ml-3">
                 <h2 className="text-lg font-medium text-white">
-                  {automation.name}
+                  {renderHighlightedText(automation.name, 'name')}
                 </h2>
                 <p className="text-sm text-blue-100">
-                  {automation.air_id}
+                  {renderHighlightedText(automation.air_id, 'air_id')}
                 </p>
               </div>
             </div>
@@ -84,6 +114,23 @@ export default function AutomationDetailsSidebar({ isOpen, onClose, automation, 
 
         {/* Content */}
         <div className="flex-1 px-6 py-6">
+          {/* Search Match Indicator */}
+          {searchData && searchTerm && (
+            <div className="mb-6 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+              <div className="flex items-center">
+                <svg className="h-5 w-5 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span className="text-sm font-medium text-purple-800">
+                  Search Match for &ldquo;{searchTerm}&rdquo;
+                </span>
+              </div>
+              <p className="text-xs text-purple-600 mt-1">
+                Highlighted sections show where your search terms were found.
+              </p>
+            </div>
+          )}
+          
           <div className="space-y-8">
             {/* Basic Information */}
             <div>
@@ -105,9 +152,15 @@ export default function AutomationDetailsSidebar({ isOpen, onClose, automation, 
                     <label className="text-sm font-medium text-gray-500">Complexity</label>
                     <p className="text-sm text-gray-900">{automation.complexity || 'N/A'}</p>
                   </div>
-                  <div>
+                  <div id="sidebar-description-section">
                     <label className="text-sm font-medium text-gray-500">Description</label>
-                    <p className="text-sm text-gray-900">{automation.brief_description || 'N/A'}</p>
+                    <p className="text-sm text-gray-900">
+                      {searchData?.description_snippet ? (
+                        <span dangerouslySetInnerHTML={{ __html: searchData.description_snippet }} />
+                      ) : (
+                        automation.brief_description || 'N/A'
+                      )}
+                    </p>
                   </div>
                 </div>
               </div>
