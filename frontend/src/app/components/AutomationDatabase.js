@@ -82,10 +82,19 @@ export default function AutomationDatabase() {
     if (!query.trim()) return;
     
     setIsSearching(true);
+    console.log(`🔍 Starting search for: "${query}"`);
+    
     try {
       const response = await fetch(`/api/automations/search?q=${encodeURIComponent(query)}&limit=50&fuzzy=true`);
       if (response.ok) {
         const data = await response.json();
+        
+        // Enhanced debug logging
+        console.log('📊 Full Search Response:', data);
+        console.log('✅ Exact matches:', data.exact_matches?.length || 0, data.exact_matches?.map(m => m.air_id));
+        console.log('🔄 Fuzzy matches:', data.fuzzy_matches?.length || 0, data.fuzzy_matches?.map(m => m.air_id));
+        console.log('📈 Total count:', data.total_count || 0);
+        
         setSearchResults(data);
         setShowSearchResults(true);
         
@@ -93,17 +102,18 @@ export default function AutomationDatabase() {
         if (data && (data.exact_matches?.length > 0 || data.fuzzy_matches?.length > 0)) {
           const topResult = data.exact_matches?.[0] || data.fuzzy_matches?.[0];
           if (topResult) {
+            console.log('📌 Auto-opening sidebar for:', topResult.air_id);
             setSelectedAutomation(topResult);
             setIsSidebarOpen(true);
           }
         }
       } else {
-        console.error('Search failed');
+        console.error('❌ Search failed with status:', response.status);
         setSearchResults(null);
         setShowSearchResults(false);
       }
     } catch (error) {
-      console.error('Search error:', error);
+      console.error('❗ Search error:', error);
       setSearchResults(null);
       setShowSearchResults(false);
     } finally {
@@ -135,39 +145,9 @@ export default function AutomationDatabase() {
     setShowSearchResults(false);
   };
 
-  // Helper function to get search match type for an automation
-  const getSearchMatchType = (automation) => {
-    if (!searchResults) return null;
-    
-    const isExactMatch = searchResults.exact_matches?.some(match => match.air_id === automation.air_id);
-    const isFuzzyMatch = searchResults.fuzzy_matches?.some(match => match.air_id === automation.air_id);
-    
-    if (isExactMatch) return 'exact';
-    if (isFuzzyMatch) return 'fuzzy';
-    return null;
-  };
-
-  // Helper function to get search result data for an automation
-  const getSearchResultData = (automation) => {
-    if (!searchResults) return null;
-    
-    const exactMatch = searchResults.exact_matches?.find(match => match.air_id === automation.air_id);
-    const fuzzyMatch = searchResults.fuzzy_matches?.find(match => match.air_id === automation.air_id);
-    
-    return exactMatch || fuzzyMatch || null;
-  };
-
-  // Helper function to render highlighted text
-  const renderHighlightedText = (text, searchData, field) => {
-    if (!searchData || !text) return text;
-    
-    // Check if we have snippet data for this field
-    const snippetField = `${field}_snippet`;
-    if (searchData[snippetField]) {
-      return <span dangerouslySetInnerHTML={{ __html: searchData[snippetField] }} />;
-    }
-    
-    return text;
+  // Helper function to render text without highlighting
+  const renderText = (text) => {
+    return text || '';
   };
 
   // Clear selections when view changes
@@ -643,20 +623,69 @@ export default function AutomationDatabase() {
 
   // Determine which automations to show based on search results or normal filtering
   const getDisplayAutomations = () => {
-    // If we have search results, prioritize them but also include filtered results
-    if (searchResults && searchTerm && Object.values(filters).every(filter => filter === '')) {
+    // If we have search results, prioritize them regardless of filters
+    if (searchResults && searchTerm) {
       // Get all search result IDs for easy lookup
       const searchResultIds = new Set([
         ...(searchResults.exact_matches || []).map(item => item.air_id),
         ...(searchResults.fuzzy_matches || []).map(item => item.air_id)
       ]);
       
-      // Return search results first, then other automations not in search results
-      const searchMatches = [...(searchResults.exact_matches || []), ...(searchResults.fuzzy_matches || [])];
-      const otherAutomations = (Array.isArray(automations) ? automations : [])
-        .filter(automation => !searchResultIds.has(automation.air_id));
+      // Combine exact and fuzzy matches, preserving order (exact first)
+      let searchMatches = [...(searchResults.exact_matches || []), ...(searchResults.fuzzy_matches || [])];
       
-      return [...searchMatches, ...otherAutomations];
+      // If we have active filters, apply them to search results
+      if (Object.values(filters).some(filter => filter !== '')) {
+        searchMatches = searchMatches.filter(automation => {
+          // Type filter
+          const matchesType = !filters.type || automation.type?.toLowerCase() === filters.type.toLowerCase();
+          
+          // Complexity filter
+          const matchesComplexity = !filters.complexity || automation.complexity?.toLowerCase() === filters.complexity.toLowerCase();
+          
+          // COE/FED filter
+          const matchesCoeFed = !filters.coe_fed || automation.coe_fed?.toLowerCase() === filters.coe_fed.toLowerCase();
+          
+          // Has description filter
+          const matchesDescription = !filters.hasDescription || 
+            (filters.hasDescription === 'with' && automation.brief_description) ||
+            (filters.hasDescription === 'without' && !automation.brief_description);
+          
+          // Date range filter
+          const matchesDateRange = !filters.dateRange || (() => {
+            const now = new Date();
+            const createdAt = automation.created_at ? new Date(automation.created_at) : null;
+            if (!createdAt) return filters.dateRange === 'unknown';
+
+            switch (filters.dateRange) {
+              case 'today':
+                return createdAt.toDateString() === now.toDateString();
+              case 'week':
+                const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                return createdAt >= weekAgo;
+              case 'month':
+                const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                return createdAt >= monthAgo;
+              case 'unknown':
+                return !automation.created_at;
+              default:
+                return true;
+            }
+          })();
+          
+          return matchesType && matchesComplexity && matchesCoeFed && matchesDescription && matchesDateRange;
+        });
+      }
+      
+      // If no filters, also include other automations not in search results
+      if (Object.values(filters).every(filter => filter === '')) {
+        const otherAutomations = (Array.isArray(automations) ? automations : [])
+          .filter(automation => !searchResultIds.has(automation.air_id));
+        return [...searchMatches, ...otherAutomations];
+      }
+      
+      // Return only search matches when filters are active
+      return searchMatches;
     }
     
     // Otherwise, use normal filtering with search term as a simple text filter
@@ -714,26 +743,6 @@ export default function AutomationDatabase() {
   const handleRowClick = (automation) => {
     setSelectedAutomation(automation);
     setIsSidebarOpen(true);
-    
-    // If this is a search result, scroll to the relevant section after a brief delay
-    if (searchResults && searchTerm) {
-      const searchData = getSearchResultData(automation);
-      if (searchData) {
-        setTimeout(() => {
-          // Determine which field has a match and scroll to it
-          if (searchData.name_snippet || searchData.name) {
-            const element = document.getElementById('sidebar-name-section');
-            if (element) element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          } else if (searchData.description_snippet || searchData.brief_description) {
-            const element = document.getElementById('sidebar-description-section');
-            if (element) element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          } else if (searchData.air_id_snippet || searchData.air_id) {
-            const element = document.getElementById('sidebar-header');
-            if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }, 300); // Wait for sidebar to open
-      }
-    }
   };
 
   const closeSidebar = () => {
@@ -1392,9 +1401,6 @@ export default function AutomationDatabase() {
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {filteredAutomations.map((automation) => {
-                          const matchType = getSearchMatchType(automation);
-                          const searchData = getSearchResultData(automation);
-                          
                           return (
                             <tr 
                               key={automation.air_id}
@@ -1402,36 +1408,19 @@ export default function AutomationDatabase() {
                                 selectedAutomation?.air_id === automation.air_id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
                               } ${
                                 selectedItems.has(automation.air_id) ? 'bg-blue-25' : ''
-                              } ${
-                                matchType === 'exact' ? 'ring-2 ring-green-200 bg-green-50' : 
-                                matchType === 'fuzzy' ? 'ring-2 ring-yellow-200 bg-yellow-50' : ''
                               }`}
                               onClick={() => handleRowClick(automation)}
                             >
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center space-x-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedItems.has(automation.air_id)}
-                                    onChange={(e) => {
-                                      e.stopPropagation();
-                                      handleSelectItem(automation.air_id);
-                                    }}
-                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                  />
-                                  {matchType && (
-                                    <span 
-                                      className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                                        matchType === 'exact' 
-                                          ? 'bg-green-100 text-green-800' 
-                                          : 'bg-yellow-100 text-yellow-800'
-                                      }`}
-                                      title={matchType === 'exact' ? 'Exact search match' : 'Similar search match'}
-                                    >
-                                      {matchType === 'exact' ? '●' : '◐'}
-                                    </span>
-                                  )}
-                                </div>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedItems.has(automation.air_id)}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectItem(automation.air_id);
+                                  }}
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
                                 {isEditing(automation.air_id, 'air_id') ? (
@@ -1447,7 +1436,7 @@ export default function AutomationDatabase() {
                                   >
                                     <div className="flex items-center justify-between">
                                       <span>
-                                        {renderHighlightedText(automation.air_id, searchData, 'air_id')}
+                                        {renderText(automation.air_id)}
                                       </span>
                                       <svg className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -1470,7 +1459,7 @@ export default function AutomationDatabase() {
                                   >
                                     <div className="flex items-center justify-between">
                                       <span>
-                                        {renderHighlightedText(automation.name, searchData, 'name')}
+                                        {renderText(automation.name)}
                                       </span>
                                       <svg className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -1522,11 +1511,11 @@ export default function AutomationDatabase() {
                                     title="Click to edit"
                                   >
                                     <div className="flex items-center justify-between">
-                                      <span className={automation.brief_description ? '' : 'text-gray-400 italic'}>
-                                        {searchData?.description_snippet ? (
-                                          <span dangerouslySetInnerHTML={{ __html: searchData.description_snippet }} />
+                                      <span className={`${automation.brief_description ? '' : 'text-gray-400 italic'}`}>
+                                        {automation.brief_description ? (
+                                          renderText(automation.brief_description)
                                         ) : (
-                                          automation.brief_description || 'Click to add...'
+                                          'Click to add...'
                                         )}
                                       </span>
                                       <svg className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1627,7 +1616,6 @@ export default function AutomationDatabase() {
               onClose={closeSidebar}
               automation={selectedAutomation}
               onDeleteAutomation={handleDeleteAutomation}
-              searchData={selectedAutomation ? getSearchResultData(selectedAutomation) : null}
               searchTerm={searchTerm}
             />
           </div>
