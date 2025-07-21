@@ -1028,6 +1028,11 @@ export default function AutomationDatabase() {
             onEditValueChange={setEditingValue}
             onKeyPress={handleKeyPress}
             isEditing={isEditing}
+            // Enhanced search props
+            searchResults={searchResults}
+            isSearching={isSearching}
+            showSearchResults={showSearchResults}
+            onClearSearch={clearSearch}
             renderEditableCell={renderEditableCell}
           />
         </div>

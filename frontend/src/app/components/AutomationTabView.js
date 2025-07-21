@@ -34,16 +34,21 @@ export default function AutomationTabView({
   onSelectAll,
   onExport,
   showExportDropdown,
-  onToggleExportDropdown
+  onToggleExportDropdown,
+  // Enhanced search props (for sidebar display only)
+  searchResults,
+  isSearching,
+  showSearchResults,
+  onClearSearch
 }) {
-  const [sidebarSearchTerm, setSidebarSearchTerm] = useState('');
   const [selectedAutomation, setSelectedAutomation] = useState(null);
   const [activeTab, setActiveTab] = useState('basic');
   
-  // Enhanced search state
-  const [searchResults, setSearchResults] = useState(null);
-  const [isSearching, setIsSearching] = useState(false);
-  const [showSearchResults, setShowSearchResults] = useState(false);
+  // Remove sidebar search state - now using global search
+  // const [sidebarSearchTerm, setSidebarSearchTerm] = useState('');
+  // const [searchResults, setSearchResults] = useState(null);
+  // const [isSearching, setIsSearching] = useState(false);
+  // const [showSearchResults, setShowSearchResults] = useState(false);
 
   // Set first automation as selected when automations load
   useEffect(() => {
@@ -52,69 +57,210 @@ export default function AutomationTabView({
     }
   }, [automations, selectedAutomation]);
 
-  // Debounced search functionality for sidebar
-  useEffect(() => {
-    const searchTimeout = setTimeout(() => {
-      if (sidebarSearchTerm.trim().length >= 2) {
-        performSidebarSearch(sidebarSearchTerm.trim());
-      } else {
-        setSearchResults(null);
-        setShowSearchResults(false);
-        setIsSearching(false);
-      }
-    }, 300); // 300ms delay
-
-    return () => clearTimeout(searchTimeout);
-  }, [sidebarSearchTerm]);
-
-  const performSidebarSearch = async (query) => {
-    if (!query.trim()) return;
-    
-    setIsSearching(true);
-    try {
-      const response = await fetch(`/api/automations/search?q=${encodeURIComponent(query)}&limit=50&fuzzy=true`);
-      if (response.ok) {
-        const data = await response.json();
-        setSearchResults(data);
-        setShowSearchResults(true);
-      } else {
-        console.error('Search failed');
-        setSearchResults(null);
-        setShowSearchResults(false);
-      }
-    } catch (error) {
-      console.error('Search error:', error);
-      setSearchResults(null);
-      setShowSearchResults(false);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const clearSidebarSearch = () => {
-    setSidebarSearchTerm('');
-    setSearchResults(null);
-    setShowSearchResults(false);
-    setIsSearching(false);
-  };
-
+  // Enhanced search result click handler with tab navigation for sidebar clicks
   const handleSearchResultClick = (automation) => {
     setSelectedAutomation(automation);
-    setShowSearchResults(false);
+    // Determine which tab to navigate to based on search term
+    const relevantTab = determineRelevantTab(automation, searchTerm);
+    setActiveTab(relevantTab);
   };
 
-  // Determine which automations to show in sidebar based on search results or normal filtering
-  const getSidebarAutomations = () => {
-    // If we have active search results, show search results
-    if (showSearchResults && searchResults && searchResults.total_count > 0) {
-      return [...(searchResults.exact_matches || []), ...(searchResults.fuzzy_matches || [])];
+  const determineRelevantTab = (automation, searchTerm) => {
+    if (!searchTerm || !automation) return 'basic';
+    
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    
+    // Field mappings for tabs
+    const fieldMappings = {
+      'basic': [
+        'air_id', 'name', 'type', 'complexity', 'coe_fed', 'queue', 
+        'brief_description', 'process_details', 'object_details'
+      ],
+      'tool': [
+        'tool', 'tool_version', 'shared_folders', 'shared_mailboxes', 'documentation'
+      ],
+      'team': [
+        'people', 'test_data'
+      ],
+      'environments': [
+        'environments'
+      ],
+      'dates': [
+        'preprod_deploy_date', 'prod_deploy_date', 'modified', 'modified_by'
+      ],
+      'metrics': [
+        'metrics', 'post_prod_total_cases', 'post_prod_sys_ex_count', 'post_prod_success_rate'
+      ],
+      'artifacts': [
+        'artifacts', 'artifacts_link', 'code_review', 'demo', 'rampup_issue_list', 'comments'
+      ]
+    };
+    
+    // Check direct field matches first
+    for (const [tabId, fields] of Object.entries(fieldMappings)) {
+      for (const field of fields) {
+        if (field.includes(lowerSearchTerm) || lowerSearchTerm.includes(field)) {
+          return tabId;
+        }
+      }
     }
     
-    // Otherwise use the simple filter for sidebar
+    // Check field content matches
+    for (const [tabId, fields] of Object.entries(fieldMappings)) {
+      for (const field of fields) {
+        const fieldValue = getFieldValue(automation, field);
+        if (fieldValue && fieldValue.toLowerCase().includes(lowerSearchTerm)) {
+          return tabId;
+        }
+      }
+    }
+    
+    // Default to basic tab
+    return 'basic';
+  };
+
+  const getMatchedFieldHint = (automation, searchTerm) => {
+    if (!searchTerm || !automation) return null;
+    
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    
+    // Check specific fields for matches
+    const fieldChecks = [
+      { field: 'air_id', tab: 'basic', label: 'AIR ID' },
+      { field: 'name', tab: 'basic', label: 'Name' },
+      { field: 'type', tab: 'basic', label: 'Type' },
+      { field: 'complexity', tab: 'basic', label: 'Complexity' },
+      { field: 'brief_description', tab: 'basic', label: 'Description' },
+      { field: 'tool', tab: 'tool', label: 'Tool' },
+      { field: 'tool_version', tab: 'tool', label: 'Tool Version' },
+      { field: 'documentation', tab: 'tool', label: 'Documentation' },
+      { field: 'comments', tab: 'artifacts', label: 'Comments' },
+      { field: 'coe_fed', tab: 'basic', label: 'COE/FED' }
+    ];
+    
+    for (const check of fieldChecks) {
+      const fieldValue = automation[check.field];
+      if (fieldValue && fieldValue.toLowerCase().includes(lowerSearchTerm)) {
+        return { field: check.label, tab: check.tab };
+      }
+    }
+    
+    return null;
+  };
+
+  const getTabDisplayName = (tabId) => {
+    const tab = tabs.find(t => t.id === tabId);
+    return tab ? tab.name : 'Basic Information';
+  };
+
+  const getFieldValue = (automation, fieldPath) => {
+    try {
+      // Handle nested object paths
+      const parts = fieldPath.split('.');
+      let value = automation;
+      
+      for (const part of parts) {
+        if (value && typeof value === 'object') {
+          value = value[part];
+        } else {
+          return null;
+        }
+      }
+      
+      // Handle arrays (for people, environments, etc.)
+      if (Array.isArray(value)) {
+        return value.map(item => {
+          if (typeof item === 'object') {
+            return Object.values(item).join(' ');
+          }
+          return String(item);
+        }).join(' ');
+      }
+      
+      // Handle objects (for metrics, artifacts, etc.)
+      if (value && typeof value === 'object') {
+        return Object.values(value).join(' ');
+      }
+      
+      return value ? String(value) : null;
+    } catch (error) {
+      return null;
+    }
+  };
+
+  // Determine which automations to show in sidebar based on global search results or normal filtering
+  const getSidebarAutomations = () => {
+    // If we have active global search results, show search results with match type info
+    if (showSearchResults && searchResults && searchResults.total_count > 0) {
+      const exactMatches = (searchResults.exact_matches || []).map(automation => ({
+        ...automation,
+        matchType: 'exact'
+      }));
+      const fuzzyMatches = (searchResults.fuzzy_matches || []).map(automation => ({
+        ...automation,
+        matchType: 'fuzzy'
+      }));
+      return [...exactMatches, ...fuzzyMatches];
+    }
+    
+    // Otherwise use the simple filter for sidebar (no match type)
     return automations.filter(automation =>
-      automation.name?.toLowerCase().includes(sidebarSearchTerm.toLowerCase()) ||
-      automation.air_id?.toLowerCase().includes(sidebarSearchTerm.toLowerCase())
-    );
+      automation.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      automation.air_id?.toLowerCase().includes(searchTerm.toLowerCase())
+    ).map(automation => ({
+      ...automation,
+      matchType: 'simple'
+    }));
+  };
+
+  const getAutomationCardStyles = (automation) => {
+    const isSelected = selectedAutomation?.air_id === automation.air_id;
+    
+    // Base styles
+    let styles = 'p-3 rounded-md cursor-pointer transition-colors ';
+    
+    if (isSelected) {
+      // Selected state overrides match type colors
+      styles += 'bg-blue-50 border border-blue-200';
+    } else {
+      // Different colors based on match type
+      switch (automation.matchType) {
+        case 'exact':
+          styles += 'hover:bg-green-50 border-l-4 border-l-green-500';
+          break;
+        case 'fuzzy':
+          styles += 'hover:bg-yellow-50 border-l-4 border-l-yellow-500';
+          break;
+        case 'simple':
+          styles += 'hover:bg-gray-50 border-l-4 border-l-gray-300';
+          break;
+        default:
+          styles += 'hover:bg-gray-50';
+      }
+    }
+    
+    return styles;
+  };
+
+  const getMatchTypeIndicator = (automation) => {
+    if (!automation.matchType || automation.matchType === 'simple') return null;
+    
+    switch (automation.matchType) {
+      case 'exact':
+        return (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            Exact Match
+          </span>
+        );
+      case 'fuzzy':
+        return (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            Similar Match
+          </span>
+        );
+      default:
+        return null;
+    }
   };
 
   const filteredSidebarAutomations = getSidebarAutomations();
@@ -418,210 +564,99 @@ export default function AutomationTabView({
           <div className="flex items-center justify-between mb-3">
             <div>
               <h3 className="text-lg font-medium text-gray-900">Automations</h3>
-              <p className="text-xs text-gray-500 mt-1">
-                {filteredSidebarAutomations.length} of {automations.length} records
-              </p>
-            </div>
-          </div>
-          
-          {/* Sidebar Search */}
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              placeholder="Search automations..."
-              value={sidebarSearchTerm}
-              onChange={(e) => setSidebarSearchTerm(e.target.value)}
-              className="block w-full pl-9 pr-10 py-2 text-sm border border-gray-300 text-black rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            />
-            {/* Clear search button */}
-            {sidebarSearchTerm && (
-              <button
-                onClick={clearSidebarSearch}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center"
-              >
-                <svg className="h-4 w-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-            
-            {/* Search Results Dropdown */}
-            {showSearchResults && searchResults && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-md shadow-lg border border-gray-200 z-30 max-h-80 overflow-y-auto">
-                {/* Search Status */}
-                <div className="p-3 border-b border-gray-200 bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs text-gray-600">
-                      {isSearching && (
-                        <span className="flex items-center">
-                          <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Searching...
+              <div className="text-xs text-gray-500 mt-1">
+                {showSearchResults && searchResults && searchResults.total_count > 0 ? (
+                  <div className="space-y-1">
+                    <div>
+                      {filteredSidebarAutomations.length} of {automations.length} records
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      {searchResults.exact_matches && searchResults.exact_matches.length > 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                          {searchResults.exact_matches.length} exact
                         </span>
                       )}
-                      {!isSearching && searchResults && (
-                        <span>
-                          Found {searchResults.total_count} result{searchResults.total_count !== 1 ? 's' : ''} for &ldquo;{searchResults.query}&rdquo;
+                      {searchResults.fuzzy_matches && searchResults.fuzzy_matches.length > 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                          {searchResults.fuzzy_matches.length} similar
                         </span>
                       )}
                     </div>
-                    <button
-                      onClick={() => setShowSearchResults(false)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
                   </div>
-                </div>
-
-                {/* Search Results */}
-                {!isSearching && searchResults && (
-                  <div className="max-h-64 overflow-y-auto">
-                    {/* Exact Matches */}
-                    {searchResults.exact_matches && searchResults.exact_matches.length > 0 && (
-                      <div>
-                        <div className="px-3 py-2 bg-green-50 border-b border-gray-200">
-                          <h4 className="text-xs font-medium text-green-800">Exact Matches ({searchResults.exact_matches.length})</h4>
-                        </div>
-                        {searchResults.exact_matches.map((automation) => (
-                          <div
-                            key={automation.air_id}
-                            onClick={() => handleSearchResultClick(automation)}
-                            className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <div className="text-xs font-medium text-gray-900">{automation.air_id}</div>
-                                <div 
-                                  className="text-xs text-gray-800 mt-1 truncate"
-                                  dangerouslySetInnerHTML={{ 
-                                    __html: automation.name_snippet || automation.name 
-                                  }}
-                                />
-                                <div className="mt-1">
-                                  <span className={`inline-flex items-center px-1 py-0.5 rounded text-xs font-medium ${getComplexityColor(automation.complexity || 'unknown')}`}>
-                                    {automation.type}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="ml-2">
-                                <svg className="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Fuzzy Matches */}
-                    {searchResults.fuzzy_matches && searchResults.fuzzy_matches.length > 0 && (
-                      <div>
-                        <div className="px-3 py-2 bg-yellow-50 border-b border-gray-200">
-                          <h4 className="text-xs font-medium text-yellow-800">Similar Matches ({searchResults.fuzzy_matches.length})</h4>
-                        </div>
-                        {searchResults.fuzzy_matches.map((automation) => (
-                          <div
-                            key={automation.air_id}
-                            onClick={() => handleSearchResultClick(automation)}
-                            className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <div className="text-xs font-medium text-gray-900">{automation.air_id}</div>
-                                <div className="text-xs text-gray-800 mt-1 truncate">{automation.name}</div>
-                                <div className="mt-1">
-                                  <span className={`inline-flex items-center px-1 py-0.5 rounded text-xs font-medium ${getComplexityColor(automation.complexity || 'unknown')}`}>
-                                    {automation.type}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="ml-2">
-                                <svg className="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* No Results */}
-                    {searchResults.total_count === 0 && (
-                      <div className="p-4 text-center">
-                        <div className="text-gray-500">
-                          <svg className="mx-auto h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          <h3 className="mt-2 text-xs font-medium text-gray-900">No results found</h3>
-                          <p className="mt-1 text-xs text-gray-500">
-                            Try adjusting your search terms.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Spell Suggestions */}
-                    {searchResults.suggestions && searchResults.suggestions.length > 0 && (
-                      <div className="p-3 bg-blue-50 border-t border-gray-200">
-                        <h4 className="text-xs font-medium text-blue-800 mb-2">Did you mean:</h4>
-                        <div className="flex flex-wrap gap-1">
-                          {searchResults.suggestions.slice(0, 2).map((suggestion, index) => (
-                            <button
-                              key={index}
-                              onClick={() => {
-                                const newQuery = sidebarSearchTerm.replace(suggestion.original, suggestion.suggestion);
-                                setSidebarSearchTerm(newQuery);
-                              }}
-                              className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
-                            >
-                              {suggestion.suggestion}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                ) : (
+                  <span>{filteredSidebarAutomations.length} of {automations.length} records</span>
                 )}
               </div>
-            )}
+            </div>
           </div>
+          
+          {/* Color Legend for Search Results */}
+          {showSearchResults && searchResults && searchResults.total_count > 0 && (
+            <div className="p-2 bg-gray-50 rounded-md">
+              <p className="text-xs text-gray-600 mb-1">Search Results:</p>
+              <div className="flex items-center space-x-3 text-xs">
+                <div className="flex items-center">
+                  <div className="w-2 h-2 bg-green-500 rounded mr-1"></div>
+                  <span className="text-gray-600">Exact matches</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-2 h-2 bg-yellow-500 rounded mr-1"></div>
+                  <span className="text-gray-600">Similar matches</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Automation List */}
         <div className="flex-1 overflow-y-auto">
           {filteredSidebarAutomations.length > 0 ? (
             <div className="space-y-1 p-2">
-              {filteredSidebarAutomations.map((automation) => (
-                <div
-                  key={automation.air_id}
-                  onClick={() => setSelectedAutomation(automation)}
-                  className={`p-3 rounded-md cursor-pointer transition-colors ${
-                    selectedAutomation?.air_id === automation.air_id
-                      ? 'bg-blue-50 border border-blue-200'
-                      : 'hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="text-sm font-medium text-gray-900 truncate">
-                    {automation.name}
+              {filteredSidebarAutomations.map((automation) => {
+                const matchHint = getMatchedFieldHint(automation, searchTerm);
+                const targetTab = determineRelevantTab(automation, searchTerm);
+                return (
+                  <div
+                    key={automation.air_id}
+                    onClick={() => {
+                      // Use enhanced click handler for search results, simple handler for regular filtering
+                      if (showSearchResults && searchResults && searchResults.total_count > 0) {
+                        handleSearchResultClick(automation);
+                      } else {
+                        setSelectedAutomation(automation);
+                      }
+                    }}
+                    className={getAutomationCardStyles(automation)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 truncate">
+                          {automation.name}
+                        </div>
+                        <div className="text-xs text-blue-600 mt-1">
+                          {automation.air_id}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1 truncate">
+                          {automation.type}
+                        </div>
+                        {/* Show match hint for search results */}
+                        {matchHint && showSearchResults && (
+                          <div className="mt-1">
+                            <span className="inline-flex items-center px-1 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                              {matchHint.field} → {getTabDisplayName(targetTab)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      {getMatchTypeIndicator(automation) && (
+                        <div className="ml-2 flex-shrink-0">
+                          {getMatchTypeIndicator(automation)}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-xs text-blue-600 mt-1">
-                    {automation.air_id}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1 truncate">
-                    {automation.type}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="p-4 text-center text-gray-500">
@@ -649,11 +684,20 @@ export default function AutomationTabView({
                   placeholder="Search across all fields..."
                   value={searchTerm}
                   onChange={(e) => onSearchChange(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 text-black rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full pl-10 pr-10 py-2 border border-gray-300 text-black rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 />
-              </div>
-              
-              {/* Filter Button */}
+                {/* Clear search button */}
+                {searchTerm && (
+                  <button
+                    onClick={onClearSearch}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    <svg className="h-4 w-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>              {/* Filter Button */}
               <div className="relative">
                 <button
                   onClick={() => onToggleFilters(!showFilters)}
