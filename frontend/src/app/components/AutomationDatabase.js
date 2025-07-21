@@ -28,11 +28,55 @@ export default function AutomationDatabase() {
   const [editingCell, setEditingCell] = useState(null); // { airId, field }
   const [editingValue, setEditingValue] = useState('');
   const [filters, setFilters] = useState({
+    // Basic fields
     type: '',
     complexity: '',
     coe_fed: '',
     hasDescription: '',
-    dateRange: ''
+    
+    // Tool fields
+    tool_name: '',
+    tool_version: '',
+    
+    // Process fields
+    queue: '',
+    qa_handshake: '',
+    
+    // Modified by
+    modified_by: '',
+    
+    // People roles
+    project_manager: '',
+    developer: '',
+    tester: '',
+    business_spoc: '',
+    
+    // Date filters
+    preprod_deploy_date: { type: '', value: '' },
+    prod_deploy_date: { type: '', value: '' },
+    warranty_end_date: { type: '', value: '' },
+    modified: { type: '', value: '' },
+    created_at: { type: '', value: '' },
+    updated_at: { type: '', value: '' },
+    
+    // Environment filters
+    dev_vdi: '',
+    qa_vdi: '',
+    prod_vdi: '',
+    dev_service_account: '',
+    qa_service_account: '',
+    prod_service_account: '',
+    
+    // Metrics filters
+    post_prod_success_rate: { type: '', value: '' },
+    post_prod_total_cases: { type: '', value: '' },
+    
+    // Artifacts filters
+    code_review: '',
+    demo: '',
+    
+    // Test data
+    test_data_spoc: ''
   });
   const [sortConfig, setSortConfig] = useState({
     key: null,
@@ -433,17 +477,114 @@ export default function AutomationDatabase() {
     return [...new Set(values)].sort();
   };
 
+  // Get unique values for people roles
+  const getUniqueRoleValues = (role) => {
+    const values = automations
+      .map(automation => {
+        if (automation.people && Array.isArray(automation.people)) {
+          const person = automation.people.find(p => p.role === role);
+          return person ? person.name : null;
+        }
+        return null;
+      })
+      .filter(value => value && value.trim())
+      .map(value => value.trim());
+    return [...new Set(values)].sort();
+  };
+
+  // Get unique values for environment fields
+  const getUniqueEnvironmentValues = (envType, field) => {
+    const values = automations
+      .map(automation => {
+        if (automation.environments && Array.isArray(automation.environments)) {
+          const env = automation.environments.find(e => e.type === envType);
+          return env ? env[field] : null;
+        }
+        return null;
+      })
+      .filter(value => value && value.trim())
+      .map(value => value.trim());
+    return [...new Set(values)].sort();
+  };
+
+  // Get unique values for modified_by
+  const getUniqueModifiedByValues = () => {
+    const values = automations
+      .map(automation => automation.modified_by_name)
+      .filter(value => value && value.trim())
+      .map(value => value.trim());
+    return [...new Set(values)].sort();
+  };
+
+  // Get unique values for test data SPOC
+  const getUniqueTestDataValues = () => {
+    const values = automations
+      .map(automation => automation.test_data?.spoc)
+      .filter(value => value && value.trim())
+      .map(value => value.trim());
+    return [...new Set(values)].sort();
+  };
+
   const clearFilters = () => {
     setFilters({
+      // Basic fields
       type: '',
       complexity: '',
       coe_fed: '',
       hasDescription: '',
-      dateRange: ''
+      
+      // Tool fields
+      tool_name: '',
+      tool_version: '',
+      
+      // Process fields
+      queue: '',
+      qa_handshake: '',
+      
+      // Modified by
+      modified_by: '',
+      
+      // People roles
+      project_manager: '',
+      developer: '',
+      tester: '',
+      business_spoc: '',
+      
+      // Date filters
+      preprod_deploy_date: { type: '', value: '' },
+      prod_deploy_date: { type: '', value: '' },
+      warranty_end_date: { type: '', value: '' },
+      modified: { type: '', value: '' },
+      created_at: { type: '', value: '' },
+      updated_at: { type: '', value: '' },
+      
+      // Environment filters
+      dev_vdi: '',
+      qa_vdi: '',
+      prod_vdi: '',
+      dev_service_account: '',
+      qa_service_account: '',
+      prod_service_account: '',
+      
+      // Metrics filters
+      post_prod_success_rate: { type: '', value: '' },
+      post_prod_total_cases: { type: '', value: '' },
+      
+      // Artifacts filters
+      code_review: '',
+      demo: '',
+      
+      // Test data
+      test_data_spoc: ''
     });
   };
 
-  const hasActiveFilters = Object.values(filters).some(filter => filter !== '');
+  const hasActiveFilters = Object.entries(filters).some(([key, value]) => {
+    if (typeof value === 'object' && value !== null) {
+      return value.type !== '' || value.value !== '';
+    }
+    return value !== '';
+  });
 
   // Export functionality
   const formatDataForExport = (data) => {
@@ -634,8 +775,159 @@ export default function AutomationDatabase() {
     setSelectedItems(newSelected);
   };
 
+
   // Determine which automations to show based on search results or normal filtering
   const getDisplayAutomations = useCallback(() => {
+    // Helper function for date filtering
+    const matchesDateFilter = (dateValue, filter) => {
+      if (!filter.type || !filter.value) return true;
+      
+      const date = dateValue ? new Date(dateValue) : null;
+      const filterDate = new Date(filter.value);
+      
+      if (!date) return false;
+      
+      switch (filter.type) {
+        case 'before':
+          return date < filterDate;
+        case 'after':
+          return date > filterDate;
+        case 'on':
+          return date.toDateString() === filterDate.toDateString();
+        default:
+          return true;
+      }
+    };
+
+    // Helper function for numeric filtering
+    const matchesNumericFilter = (numericValue, filter) => {
+      if (!filter.type || !filter.value) return true;
+      
+      const value = parseFloat(numericValue);
+      const filterValue = parseFloat(filter.value);
+      
+      if (isNaN(value) || isNaN(filterValue)) return false;
+      
+      switch (filter.type) {
+        case 'equals':
+          return value === filterValue;
+        case 'greater':
+          return value > filterValue;
+        case 'less':
+          return value < filterValue;
+        case 'greater_equal':
+          return value >= filterValue;
+        case 'less_equal':
+          return value <= filterValue;
+        default:
+          return true;
+      }
+    };
+
+    // Helper function to check if automation matches all filters
+    const matchesAllFilters = (automation) => {
+      // Basic text filters
+      if (filters.type && automation.type?.toLowerCase() !== filters.type.toLowerCase()) return false;
+      if (filters.complexity && automation.complexity?.toLowerCase() !== filters.complexity.toLowerCase()) return false;
+      if (filters.coe_fed && automation.coe_fed?.toLowerCase() !== filters.coe_fed.toLowerCase()) return false;
+      
+      // Has description filter
+      if (filters.hasDescription) {
+        if (filters.hasDescription === 'with' && !automation.brief_description) return false;
+        if (filters.hasDescription === 'without' && automation.brief_description) return false;
+      }
+      
+      // Tool filters
+      if (filters.tool_name && automation.tool_name?.toLowerCase() !== filters.tool_name.toLowerCase()) return false;
+      if (filters.tool_version && automation.tool_version?.toLowerCase() !== filters.tool_version.toLowerCase()) return false;
+      
+      // Process fields
+      if (filters.queue && automation.queue?.toLowerCase() !== filters.queue.toLowerCase()) return false;
+      if (filters.qa_handshake && automation.qa_handshake?.toLowerCase() !== filters.qa_handshake.toLowerCase()) return false;
+      
+      // Modified by
+      if (filters.modified_by && automation.modified_by_name?.toLowerCase() !== filters.modified_by.toLowerCase()) return false;
+      
+      // People role filters
+      if (filters.project_manager || filters.developer || filters.tester || filters.business_spoc) {
+        if (!automation.people || !Array.isArray(automation.people)) return false;
+        
+        if (filters.project_manager) {
+          const pm = automation.people.find(p => p.role === 'Project Manager');
+          if (!pm || pm.name?.toLowerCase() !== filters.project_manager.toLowerCase()) return false;
+        }
+        
+        if (filters.developer) {
+          const dev = automation.people.find(p => p.role === 'Developer');
+          if (!dev || dev.name?.toLowerCase() !== filters.developer.toLowerCase()) return false;
+        }
+        
+        if (filters.tester) {
+          const tester = automation.people.find(p => p.role === 'Tester');
+          if (!tester || tester.name?.toLowerCase() !== filters.tester.toLowerCase()) return false;
+        }
+        
+        if (filters.business_spoc) {
+          const spoc = automation.people.find(p => p.role === 'Business SPOC');
+          if (!spoc || spoc.name?.toLowerCase() !== filters.business_spoc.toLowerCase()) return false;
+        }
+      }
+      
+      // Environment filters
+      if (automation.environments && Array.isArray(automation.environments)) {
+        if (filters.dev_vdi) {
+          const devEnv = automation.environments.find(e => e.type === 'Development');
+          if (!devEnv || devEnv.vdi?.toLowerCase() !== filters.dev_vdi.toLowerCase()) return false;
+        }
+        
+        if (filters.qa_vdi) {
+          const qaEnv = automation.environments.find(e => e.type === 'QA');
+          if (!qaEnv || qaEnv.vdi?.toLowerCase() !== filters.qa_vdi.toLowerCase()) return false;
+        }
+        
+        if (filters.prod_vdi) {
+          const prodEnv = automation.environments.find(e => e.type === 'Production');
+          if (!prodEnv || prodEnv.vdi?.toLowerCase() !== filters.prod_vdi.toLowerCase()) return false;
+        }
+        
+        if (filters.dev_service_account) {
+          const devEnv = automation.environments.find(e => e.type === 'Development');
+          if (!devEnv || devEnv.service_account?.toLowerCase() !== filters.dev_service_account.toLowerCase()) return false;
+        }
+        
+        if (filters.qa_service_account) {
+          const qaEnv = automation.environments.find(e => e.type === 'QA');
+          if (!qaEnv || qaEnv.service_account?.toLowerCase() !== filters.qa_service_account.toLowerCase()) return false;
+        }
+        
+        if (filters.prod_service_account) {
+          const prodEnv = automation.environments.find(e => e.type === 'Production');
+          if (!prodEnv || prodEnv.service_account?.toLowerCase() !== filters.prod_service_account.toLowerCase()) return false;
+        }
+      }
+      
+      // Test data filters
+      if (filters.test_data_spoc && automation.test_data?.spoc?.toLowerCase() !== filters.test_data_spoc.toLowerCase()) return false;
+      
+      // Artifacts filters
+      if (filters.code_review && automation.artifacts?.code_review?.toLowerCase() !== filters.code_review.toLowerCase()) return false;
+      if (filters.demo && automation.artifacts?.demo?.toLowerCase() !== filters.demo.toLowerCase()) return false;
+      
+      // Date filters
+      if (!matchesDateFilter(automation.preprod_deploy_date, filters.preprod_deploy_date)) return false;
+      if (!matchesDateFilter(automation.prod_deploy_date, filters.prod_deploy_date)) return false;
+      if (!matchesDateFilter(automation.warranty_end_date, filters.warranty_end_date)) return false;
+      if (!matchesDateFilter(automation.modified, filters.modified)) return false;
+      if (!matchesDateFilter(automation.created_at, filters.created_at)) return false;
+      if (!matchesDateFilter(automation.updated_at, filters.updated_at)) return false;
+      
+      // Numeric filters for metrics
+      if (!matchesNumericFilter(automation.metrics?.post_prod_success_rate, filters.post_prod_success_rate)) return false;
+      if (!matchesNumericFilter(automation.metrics?.post_prod_total_cases, filters.post_prod_total_cases)) return false;
+      
+      return true;
+    };
+
     // If we have search results, prioritize them regardless of filters
     if (searchResults && searchTerm) {
       // Get all search result IDs for easy lookup
@@ -648,50 +940,12 @@ export default function AutomationDatabase() {
       let searchMatches = [...(searchResults.exact_matches || []), ...(searchResults.fuzzy_matches || [])];
       
       // If we have active filters, apply them to search results
-      if (Object.values(filters).some(filter => filter !== '')) {
-        searchMatches = searchMatches.filter(automation => {
-          // Type filter
-          const matchesType = !filters.type || automation.type?.toLowerCase() === filters.type.toLowerCase();
-          
-          // Complexity filter
-          const matchesComplexity = !filters.complexity || automation.complexity?.toLowerCase() === filters.complexity.toLowerCase();
-          
-          // COE/FED filter
-          const matchesCoeFed = !filters.coe_fed || automation.coe_fed?.toLowerCase() === filters.coe_fed.toLowerCase();
-          
-          // Has description filter
-          const matchesDescription = !filters.hasDescription || 
-            (filters.hasDescription === 'with' && automation.brief_description) ||
-            (filters.hasDescription === 'without' && !automation.brief_description);
-          
-          // Date range filter
-          const matchesDateRange = !filters.dateRange || (() => {
-            const now = new Date();
-            const createdAt = automation.created_at ? new Date(automation.created_at) : null;
-            if (!createdAt) return filters.dateRange === 'unknown';
-
-            switch (filters.dateRange) {
-              case 'today':
-                return createdAt.toDateString() === now.toDateString();
-              case 'week':
-                const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                return createdAt >= weekAgo;
-              case 'month':
-                const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                return createdAt >= monthAgo;
-              case 'unknown':
-                return !automation.created_at;
-              default:
-                return true;
-            }
-          })();
-
-          return matchesType && matchesComplexity && matchesCoeFed && matchesDescription && matchesDateRange;
-        });
+      if (hasActiveFilters) {
+        searchMatches = searchMatches.filter(automation => matchesAllFilters(automation));
       }
       
       // If no filters, also include other automations not in search results
-      if (Object.values(filters).every(filter => filter === '')) {
+      if (!hasActiveFilters) {
         const otherAutomations = (Array.isArray(automations) ? automations : [])
           .filter(automation => !searchResultIds.has(automation.air_id));
         return [...searchMatches, ...otherAutomations];
@@ -711,45 +965,12 @@ export default function AutomationDatabase() {
         automation.brief_description?.toLowerCase().includes(searchTerm.toLowerCase())
       );
 
-      // Type filter
-      const matchesType = !filters.type || automation.type?.toLowerCase() === filters.type.toLowerCase();
+      // Apply all other filters
+      const matchesFilters = matchesAllFilters(automation);
 
-      // Complexity filter
-      const matchesComplexity = !filters.complexity || automation.complexity?.toLowerCase() === filters.complexity.toLowerCase();
-
-      // COE/FED filter
-      const matchesCoeFed = !filters.coe_fed || automation.coe_fed?.toLowerCase() === filters.coe_fed.toLowerCase();
-
-      // Has description filter
-      const matchesDescription = !filters.hasDescription || 
-        (filters.hasDescription === 'with' && automation.brief_description) ||
-        (filters.hasDescription === 'without' && !automation.brief_description);
-
-      // Date range filter (basic implementation)
-      const matchesDateRange = !filters.dateRange || (() => {
-        const now = new Date();
-        const createdAt = automation.created_at ? new Date(automation.created_at) : null;
-        if (!createdAt) return filters.dateRange === 'unknown';
-
-        switch (filters.dateRange) {
-          case 'today':
-            return createdAt.toDateString() === now.toDateString();
-          case 'week':
-            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            return createdAt >= weekAgo;
-          case 'month':
-            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-            return createdAt >= monthAgo;
-          case 'unknown':
-            return !automation.created_at;
-          default:
-            return true;
-        }
-      })();
-
-      return matchesSearch && matchesType && matchesComplexity && matchesCoeFed && matchesDescription && matchesDateRange;
+      return matchesSearch && matchesFilters;
     });
-  }, [searchResults, searchTerm, filters, automations]);
+  }, [searchResults, searchTerm, filters, automations, hasActiveFilters]);
 
   const filteredAutomations = useMemo(() => {
     const automationsToSort = getDisplayAutomations();
@@ -1013,6 +1234,10 @@ export default function AutomationDatabase() {
             hasActiveFilters={hasActiveFilters}
             onClearFilters={clearFilters}
             getUniqueValues={getUniqueValues}
+            getUniqueRoleValues={getUniqueRoleValues}
+            getUniqueEnvironmentValues={getUniqueEnvironmentValues}
+            getUniqueModifiedByValues={getUniqueModifiedByValues}
+            getUniqueTestDataValues={getUniqueTestDataValues}
             allAutomations={automations}
             selectedItems={selectedItems}
             onSelectItem={handleSelectItem}
@@ -1141,11 +1366,377 @@ export default function AutomationDatabase() {
                         <FunnelIcon className="h-4 w-4" />
                         {hasActiveFilters && (
                           <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {Object.values(filters).filter(f => f !== '').length}
+                            {Object.entries(filters).filter(([key, value]) => {
+                              if (typeof value === 'object' && value !== null) {
+                                return value.type !== '' || value.value !== '';
+                              }
+                              return value !== '';
+                            }).length}
                           </span>
                         )}
                         <ChevronDownIcon className={`h-4 w-4 ml-1 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
                       </button>
+                      
+                      {/* Filter Dropdown */}
+                      {showFilters && (
+                        <div className="absolute right-0 mt-2 w-96 bg-white rounded-md shadow-lg border border-gray-200 z-10 max-h-96 overflow-y-auto">
+                          <div className="p-4">
+                            <div className="flex items-center justify-between mb-4">
+                              <h3 className="text-lg font-medium text-gray-900">Filters</h3>
+                              {hasActiveFilters && (
+                                <button
+                                  onClick={clearFilters}
+                                  className="text-sm text-blue-600 hover:text-blue-800"
+                                >
+                                  Clear all
+                                </button>
+                              )}
+                            </div>
+                            
+                            <div className="space-y-4">
+                              {/* Basic Filters Section */}
+                              <div className="border-b border-gray-200 pb-4">
+                                <h4 className="text-sm font-medium text-gray-800 mb-3">Basic Filters</h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                  {/* Type Filter */}
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                                    <select
+                                      value={filters.type}
+                                      onChange={(e) => setFilters({...filters, type: e.target.value})}
+                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                      <option value="" className="text-gray-800">All types</option>
+                                      {getUniqueValues('type').map(type => (
+                                        <option key={type} value={type} className="text-gray-800">{type}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  
+                                  {/* Complexity Filter */}
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Complexity</label>
+                                    <select
+                                      value={filters.complexity}
+                                      onChange={(e) => setFilters({...filters, complexity: e.target.value})}
+                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                      <option value="" className="text-gray-800">All complexities</option>
+                                      <option value="Low" className="text-gray-800">Low</option>
+                                      <option value="Medium" className="text-gray-800">Medium</option>
+                                      <option value="High" className="text-gray-800">High</option>
+                                    </select>
+                                  </div>
+                                  
+                                  {/* COE/FED Filter */}
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">COE/FED</label>
+                                    <select
+                                      value={filters.coe_fed}
+                                      onChange={(e) => setFilters({...filters, coe_fed: e.target.value})}
+                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                      <option value="" className="text-gray-800">All COE/FED</option>
+                                      {getUniqueValues('coe_fed').map(coe => (
+                                        <option key={coe} value={coe} className="text-gray-800">{coe}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  
+                                  {/* Description Filter */}
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                    <select
+                                      value={filters.hasDescription}
+                                      onChange={(e) => setFilters({...filters, hasDescription: e.target.value})}
+                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                      <option value="" className="text-gray-800">All</option>
+                                      <option value="with" className="text-gray-800">With description</option>
+                                      <option value="without" className="text-gray-800">Without description</option>
+                                    </select>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Tool Filters Section */}
+                              <div className="border-b border-gray-200 pb-4">
+                                <h4 className="text-sm font-medium text-gray-800 mb-3">Tool Filters</h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tool Name</label>
+                                    <select
+                                      value={filters.tool_name}
+                                      onChange={(e) => setFilters({...filters, tool_name: e.target.value})}
+                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                      <option value="" className="text-gray-800">All tools</option>
+                                      {getUniqueValues('tool_name').map(tool => (
+                                        <option key={tool} value={tool} className="text-gray-800">{tool}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tool Version</label>
+                                    <select
+                                      value={filters.tool_version}
+                                      onChange={(e) => setFilters({...filters, tool_version: e.target.value})}
+                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                      <option value="" className="text-gray-800">All versions</option>
+                                      {getUniqueValues('tool_version').map(version => (
+                                        <option key={version} value={version} className="text-gray-800">{version}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* People Filters Section */}
+                              <div className="border-b border-gray-200 pb-4">
+                                <h4 className="text-sm font-medium text-gray-800 mb-3">People Filters</h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Project Manager</label>
+                                    <select
+                                      value={filters.project_manager}
+                                      onChange={(e) => setFilters({...filters, project_manager: e.target.value})}
+                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                      <option value="" className="text-gray-800">All PMs</option>
+                                      {getUniqueRoleValues('Project Manager').map(name => (
+                                        <option key={name} value={name} className="text-gray-800">{name}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Developer</label>
+                                    <select
+                                      value={filters.developer}
+                                      onChange={(e) => setFilters({...filters, developer: e.target.value})}
+                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                      <option value="" className="text-gray-800">All developers</option>
+                                      {getUniqueRoleValues('Developer').map(name => (
+                                        <option key={name} value={name} className="text-gray-800">{name}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tester</label>
+                                    <select
+                                      value={filters.tester}
+                                      onChange={(e) => setFilters({...filters, tester: e.target.value})}
+                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                      <option value="" className="text-gray-800">All testers</option>
+                                      {getUniqueRoleValues('Tester').map(name => (
+                                        <option key={name} value={name} className="text-gray-800">{name}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Business SPOC</label>
+                                    <select
+                                      value={filters.business_spoc}
+                                      onChange={(e) => setFilters({...filters, business_spoc: e.target.value})}
+                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                      <option value="" className="text-gray-800">All SPOCs</option>
+                                      {getUniqueRoleValues('Business SPOC').map(name => (
+                                        <option key={name} value={name} className="text-gray-800">{name}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Date Filters Section */}
+                              <div className="border-b border-gray-200 pb-4">
+                                <h4 className="text-sm font-medium text-gray-800 mb-3">Date Filters</h4>
+                                <div className="space-y-3">
+                                  {/* Pre-prod Deploy Date */}
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Pre-prod Deploy Date</label>
+                                    <div className="flex space-x-2">
+                                      <select
+                                        value={filters.preprod_deploy_date.type}
+                                        onChange={(e) => setFilters({...filters, preprod_deploy_date: {...filters.preprod_deploy_date, type: e.target.value}})}
+                                        className="w-1/3 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                      >
+                                        <option value="" className="text-gray-800">Any</option>
+                                        <option value="before" className="text-gray-800">Before</option>
+                                        <option value="after" className="text-gray-800">After</option>
+                                        <option value="on" className="text-gray-800">On</option>
+                                      </select>
+                                      <input
+                                        type="date"
+                                        value={filters.preprod_deploy_date.value}
+                                        onChange={(e) => setFilters({...filters, preprod_deploy_date: {...filters.preprod_deploy_date, value: e.target.value}})}
+                                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                      />
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Prod Deploy Date */}
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Prod Deploy Date</label>
+                                    <div className="flex space-x-2">
+                                      <select
+                                        value={filters.prod_deploy_date.type}
+                                        onChange={(e) => setFilters({...filters, prod_deploy_date: {...filters.prod_deploy_date, type: e.target.value}})}
+                                        className="w-1/3 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                      >
+                                        <option value="" className="text-gray-800">Any</option>
+                                        <option value="before" className="text-gray-800">Before</option>
+                                        <option value="after" className="text-gray-800">After</option>
+                                        <option value="on" className="text-gray-800">On</option>
+                                      </select>
+                                      <input
+                                        type="date"
+                                        value={filters.prod_deploy_date.value}
+                                        onChange={(e) => setFilters({...filters, prod_deploy_date: {...filters.prod_deploy_date, value: e.target.value}})}
+                                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                      />
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Warranty End Date */}
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Warranty End Date</label>
+                                    <div className="flex space-x-2">
+                                      <select
+                                        value={filters.warranty_end_date.type}
+                                        onChange={(e) => setFilters({...filters, warranty_end_date: {...filters.warranty_end_date, type: e.target.value}})}
+                                        className="w-1/3 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                      >
+                                        <option value="" className="text-gray-800">Any</option>
+                                        <option value="before" className="text-gray-800">Before</option>
+                                        <option value="after" className="text-gray-800">After</option>
+                                        <option value="on" className="text-gray-800">On</option>
+                                      </select>
+                                      <input
+                                        type="date"
+                                        value={filters.warranty_end_date.value}
+                                        onChange={(e) => setFilters({...filters, warranty_end_date: {...filters.warranty_end_date, value: e.target.value}})}
+                                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Environment Filters Section */}
+                              <div className="border-b border-gray-200 pb-4">
+                                <h4 className="text-sm font-medium text-gray-800 mb-3">Environment Filters</h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Dev VDI</label>
+                                    <select
+                                      value={filters.dev_vdi}
+                                      onChange={(e) => setFilters({...filters, dev_vdi: e.target.value})}
+                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                      <option value="" className="text-gray-800">All dev VDIs</option>
+                                      {getUniqueEnvironmentValues('Development', 'vdi').map(vdi => (
+                                        <option key={vdi} value={vdi} className="text-gray-800">{vdi}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">QA VDI</label>
+                                    <select
+                                      value={filters.qa_vdi}
+                                      onChange={(e) => setFilters({...filters, qa_vdi: e.target.value})}
+                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                      <option value="" className="text-gray-800">All QA VDIs</option>
+                                      {getUniqueEnvironmentValues('QA', 'vdi').map(vdi => (
+                                        <option key={vdi} value={vdi} className="text-gray-800">{vdi}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Prod VDI</label>
+                                    <select
+                                      value={filters.prod_vdi}
+                                      onChange={(e) => setFilters({...filters, prod_vdi: e.target.value})}
+                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                      <option value="" className="text-gray-800">All prod VDIs</option>
+                                      {getUniqueEnvironmentValues('Production', 'vdi').map(vdi => (
+                                        <option key={vdi} value={vdi} className="text-gray-800">{vdi}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Metrics Filters Section */}
+                              <div>
+                                <h4 className="text-sm font-medium text-gray-800 mb-3">Metrics Filters</h4>
+                                <div className="space-y-3">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Success Rate %</label>
+                                    <div className="flex space-x-2">
+                                      <select
+                                        value={filters.post_prod_success_rate.type}
+                                        onChange={(e) => setFilters({...filters, post_prod_success_rate: {...filters.post_prod_success_rate, type: e.target.value}})}
+                                        className="w-1/3 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                      >
+                                        <option value="" className="text-gray-800">Any</option>
+                                        <option value="equals" className="text-gray-800">Equals</option>
+                                        <option value="greater" className="text-gray-800">Greater than</option>
+                                        <option value="less" className="text-gray-800">Less than</option>
+                                      </select>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        value={filters.post_prod_success_rate.value}
+                                        onChange={(e) => setFilters({...filters, post_prod_success_rate: {...filters.post_prod_success_rate, value: e.target.value}})}
+                                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                        placeholder="0.00"
+                                      />
+                                    </div>
+                                  </div>
+                                  
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Total Cases</label>
+                                    <div className="flex space-x-2">
+                                      <select
+                                        value={filters.post_prod_total_cases.type}
+                                        onChange={(e) => setFilters({...filters, post_prod_total_cases: {...filters.post_prod_total_cases, type: e.target.value}})}
+                                        className="w-1/3 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                      >
+                                        <option value="" className="text-gray-800">Any</option>
+                                        <option value="equals" className="text-gray-800">Equals</option>
+                                        <option value="greater" className="text-gray-800">Greater than</option>
+                                        <option value="less" className="text-gray-800">Less than</option>
+                                      </select>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        value={filters.post_prod_total_cases.value}
+                                        onChange={(e) => setFilters({...filters, post_prod_total_cases: {...filters.post_prod_total_cases, value: e.target.value}})}
+                                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                        placeholder="0"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                   

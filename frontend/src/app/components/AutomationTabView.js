@@ -28,6 +28,10 @@ export default function AutomationTabView({
   hasActiveFilters,
   onClearFilters,
   getUniqueValues,
+  getUniqueRoleValues,
+  getUniqueEnvironmentValues,
+  getUniqueModifiedByValues,
+  getUniqueTestDataValues,
   allAutomations,
   selectedItems,
   onSelectItem,
@@ -38,11 +42,21 @@ export default function AutomationTabView({
   // Import props
   onImport,
   isImporting,
+  // Editing props
+  editingCell,
+  editingValue,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onEditValueChange,
+  onKeyPress,
+  isEditing,
   // Enhanced search props (for sidebar display only)
   searchResults,
   isSearching,
   showSearchResults,
-  onClearSearch
+  onClearSearch,
+  renderEditableCell
 }) {
   const [selectedAutomation, setSelectedAutomation] = useState(null);
   const [activeTab, setActiveTab] = useState('basic');
@@ -742,11 +756,11 @@ export default function AutomationTabView({
                           <select
                             value={filters.type}
                             onChange={(e) => onFiltersChange({...filters, type: e.target.value})}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                           >
-                            <option value="">All types</option>
+                            <option value="" className="text-gray-800">All types</option>
                             {getUniqueValues('type').map(type => (
-                              <option key={type} value={type}>{type}</option>
+                              <option key={type} value={type} className="text-gray-800">{type}</option>
                             ))}
                           </select>
                         </div>
@@ -757,12 +771,12 @@ export default function AutomationTabView({
                           <select
                             value={filters.complexity}
                             onChange={(e) => onFiltersChange({...filters, complexity: e.target.value})}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                           >
-                            <option value="">All complexities</option>
-                            <option value="low">Low</option>
-                            <option value="medium">Medium</option>
-                            <option value="high">High</option>
+                            <option value="" className="text-gray-800">All complexities</option>
+                            <option value="Low" className="text-gray-800">Low</option>
+                            <option value="Medium" className="text-gray-800">Medium</option>
+                            <option value="High" className="text-gray-800">High</option>
                           </select>
                         </div>
                         
@@ -772,11 +786,11 @@ export default function AutomationTabView({
                           <select
                             value={filters.coe_fed}
                             onChange={(e) => onFiltersChange({...filters, coe_fed: e.target.value})}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                           >
-                            <option value="">All COE/FED</option>
+                            <option value="" className="text-gray-800">All COE/FED</option>
                             {getUniqueValues('coe_fed').map(coe => (
-                              <option key={coe} value={coe}>{coe}</option>
+                              <option key={coe} value={coe} className="text-gray-800">{coe}</option>
                             ))}
                           </select>
                         </div>
@@ -787,11 +801,11 @@ export default function AutomationTabView({
                           <select
                             value={filters.hasDescription}
                             onChange={(e) => onFiltersChange({...filters, hasDescription: e.target.value})}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                           >
-                            <option value="">All</option>
-                            <option value="with">With description</option>
-                            <option value="without">Without description</option>
+                            <option value="" className="text-gray-800">All</option>
+                            <option value="with" className="text-gray-800">With description</option>
+                            <option value="without" className="text-gray-800">Without description</option>
                           </select>
                         </div>
                         
@@ -801,13 +815,13 @@ export default function AutomationTabView({
                           <select
                             value={filters.dateRange}
                             onChange={(e) => onFiltersChange({...filters, dateRange: e.target.value})}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                           >
-                            <option value="">All time</option>
-                            <option value="today">Today</option>
-                            <option value="week">Past week</option>
-                            <option value="month">Past month</option>
-                            <option value="unknown">Unknown date</option>
+                            <option value="" className="text-gray-800">All time</option>
+                            <option value="today" className="text-gray-800">Today</option>
+                            <option value="week" className="text-gray-800">Past week</option>
+                            <option value="month" className="text-gray-800">Past month</option>
+                            <option value="unknown" className="text-gray-800">Unknown date</option>
                           </select>
                         </div>
                       </div>
