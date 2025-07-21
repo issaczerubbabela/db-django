@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MagnifyingGlassIcon, ViewColumnsIcon, RectangleStackIcon, PlusIcon, TrashIcon, FunnelIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, ViewColumnsIcon, RectangleStackIcon, PlusIcon, TrashIcon, FunnelIcon, DocumentArrowDownIcon, DocumentArrowUpIcon } from '@heroicons/react/24/outline';
 import { 
   UserIcon, 
   ComputerDesktopIcon, 
@@ -35,6 +35,9 @@ export default function AutomationTabView({
   onExport,
   showExportDropdown,
   onToggleExportDropdown,
+  // Import props
+  onImport,
+  isImporting,
   // Enhanced search props (for sidebar display only)
   searchResults,
   isSearching,
@@ -707,8 +710,7 @@ export default function AutomationTabView({
                       : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
                   }`}
                 >
-                  <FunnelIcon className="h-4 w-4 mr-2" />
-                  Filters
+                  <FunnelIcon className="h-4 w-4" />
                   {hasActiveFilters && (
                     <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                       {Object.values(filters).filter(f => f !== '').length}
@@ -822,14 +824,12 @@ export default function AutomationTabView({
                   onClick={() => onViewTypeChange('slide')}
                   className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-500 hover:text-gray-700`}
                 >
-                  <ViewColumnsIcon className="h-4 w-4 mr-2" />
-                  Slide View
+                  <ViewColumnsIcon className="h-4 w-4" />
                 </button>
                 <button
                   className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors bg-white text-gray-900 shadow-sm`}
                 >
-                  <RectangleStackIcon className="h-4 w-4 mr-2" />
-                  Tab View
+                  <RectangleStackIcon className="h-4 w-4" />
                 </button>
               </div>
               
@@ -837,8 +837,16 @@ export default function AutomationTabView({
                 onClick={onAddAutomation}
                 className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
               >
-                <PlusIcon className="h-5 w-5 mr-2" />
-                Add Automation
+                <PlusIcon className="h-5 w-5" />
+              </button>
+
+              {/* Import Button */}
+              <button
+                onClick={onImport}
+                disabled={isImporting}
+                className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors disabled:opacity-50"
+              >
+                <DocumentArrowUpIcon className="h-5 w-5" />
               </button>
 
               {/* Export Button */}
@@ -847,8 +855,7 @@ export default function AutomationTabView({
                   onClick={() => onToggleExportDropdown(!showExportDropdown)}
                   className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
                 >
-                  <DocumentArrowDownIcon className="h-5 w-5 mr-2" />
-                  Export
+                  <DocumentArrowDownIcon className="h-5 w-5" />
                   <ChevronDownIcon className={`h-4 w-4 ml-1 transition-transform ${showExportDropdown ? 'rotate-180' : ''}`} />
                 </button>
 
