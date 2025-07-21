@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { MagnifyingGlassIcon, PlusIcon, ViewColumnsIcon, RectangleStackIcon, DocumentArrowUpIcon, TrashIcon, FunnelIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
-import { ChevronRightIcon, ChevronDownIcon } from '@heroicons/react/20/solid';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { MagnifyingGlassIcon, PlusIcon, ViewColumnsIcon, RectangleStackIcon, DocumentArrowUpIcon, TrashIcon, FunnelIcon, DocumentArrowDownIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import { ChevronRightIcon, ChevronDownIcon as ChevronDownSolid } from '@heroicons/react/20/solid';
 import AutomationDetailsSidebar from './AutomationDetailsSidebar';
 import AutomationForm from './AutomationForm';
 import AutomationFormComplete from './AutomationFormComplete';
@@ -34,6 +34,10 @@ export default function AutomationDatabase() {
     hasDescription: '',
     dateRange: ''
   });
+  const [sortConfig, setSortConfig] = useState({
+    key: null,
+    direction: 'asc'
+  });
   const fileInputRef = useRef(null);
   const filterDropdownRef = useRef(null);
   const exportDropdownRef = useRef(null);
@@ -61,7 +65,16 @@ export default function AutomationDatabase() {
     // Clear search results when filters change
     setShowSearchResults(false);
     setSearchResults(null);
+    // Clear sorting when filters change
+    setSortConfig({ key: null, direction: 'asc' });
   }, [filters]); // Remove searchTerm from dependencies to avoid clearing on search
+
+  // Clear selections and sorting when search term changes
+  useEffect(() => {
+    setSelectedItems(new Set());
+    // Clear sorting when search changes
+    setSortConfig({ key: null, direction: 'asc' });
+  }, [searchTerm]);
 
   // Debounced search functionality
   useEffect(() => {
@@ -622,7 +635,7 @@ export default function AutomationDatabase() {
   };
 
   // Determine which automations to show based on search results or normal filtering
-  const getDisplayAutomations = () => {
+  const getDisplayAutomations = useCallback(() => {
     // If we have search results, prioritize them regardless of filters
     if (searchResults && searchTerm) {
       // Get all search result IDs for easy lookup
@@ -672,7 +685,7 @@ export default function AutomationDatabase() {
                 return true;
             }
           })();
-          
+
           return matchesType && matchesComplexity && matchesCoeFed && matchesDescription && matchesDateRange;
         });
       }
@@ -736,11 +749,36 @@ export default function AutomationDatabase() {
 
       return matchesSearch && matchesType && matchesComplexity && matchesCoeFed && matchesDescription && matchesDateRange;
     });
-  };
+  }, [searchResults, searchTerm, filters, automations]);
 
-  const filteredAutomations = getDisplayAutomations();
+  const filteredAutomations = useMemo(() => {
+    const automationsToSort = getDisplayAutomations();
+    
+    if (!sortConfig.key) {
+      return automationsToSort;
+    }
 
-  const handleRowClick = (automation) => {
+    return [...automationsToSort].sort((a, b) => {
+      let aValue = a[sortConfig.key];
+      let bValue = b[sortConfig.key];
+
+      // Handle null/undefined values
+      if (aValue === null || aValue === undefined) aValue = '';
+      if (bValue === null || bValue === undefined) bValue = '';
+
+      // Convert to string for comparison
+      aValue = String(aValue).toLowerCase();
+      bValue = String(bValue).toLowerCase();
+
+      if (aValue < bValue) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+  }, [getDisplayAutomations, sortConfig]);  const handleRowClick = (automation) => {
     setSelectedAutomation(automation);
     setIsSidebarOpen(true);
   };
@@ -761,6 +799,32 @@ export default function AutomationDatabase() {
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  // Sorting functionality
+  const handleSort = (columnKey) => {
+    let direction = 'asc';
+    if (sortConfig.key === columnKey && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key: columnKey, direction });
+  };
+
+  const getSortIcon = (columnKey) => {
+    if (sortConfig.key !== columnKey) {
+      return (
+        <div className="flex flex-col">
+          <ChevronUpIcon className="h-3 w-3 text-gray-300" />
+          <ChevronDownIcon className="h-3 w-3 text-gray-300 -mt-1" />
+        </div>
+      );
+    }
+    
+    return sortConfig.direction === 'asc' ? (
+      <ChevronUpIcon className="h-4 w-4 text-blue-600" />
+    ) : (
+      <ChevronDownIcon className="h-4 w-4 text-blue-600" />
+    );
   };
 
   // Inline editing functionality
@@ -1379,20 +1443,50 @@ export default function AutomationDatabase() {
                               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            AIR ID
+                          <th 
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                            onClick={() => handleSort('air_id')}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>AIR ID</span>
+                              {getSortIcon('air_id')}
+                            </div>
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Automation Name
+                          <th 
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                            onClick={() => handleSort('name')}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>Automation Name</span>
+                              {getSortIcon('name')}
+                            </div>
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Type
+                          <th 
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                            onClick={() => handleSort('type')}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>Type</span>
+                              {getSortIcon('type')}
+                            </div>
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Complexity
+                          <th 
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                            onClick={() => handleSort('complexity')}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>Complexity</span>
+                              {getSortIcon('complexity')}
+                            </div>
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Description
+                          <th 
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                            onClick={() => handleSort('brief_description')}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>Description</span>
+                              {getSortIcon('brief_description')}
+                            </div>
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Actions
