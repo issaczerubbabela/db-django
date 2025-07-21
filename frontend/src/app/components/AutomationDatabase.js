@@ -1048,14 +1048,107 @@ export default function AutomationDatabase() {
             <div className="bg-white shadow-sm border-b border-gray-200">
               <div className="px-6 py-4">
                 <div className="flex justify-between items-center">
-                  <div>
-                    <h1 className="text-2xl font-semibold text-gray-900">
-                      Automation Database
-                    </h1>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Manage and track automation records
-                    </p>
+                  <div className="flex items-center space-x-4 flex-1">
+                    <div>
+                      <h1 className="text-2xl font-semibold text-gray-900">
+                        Automation Database
+                      </h1>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Manage and track automation records
+                      </p>
+                    </div>
+                    
+                    {/* Search Bar - aligned with tab view style */}
+                    <div className="flex-1 relative max-w-md">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Search across all fields..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="block w-full pl-10 pr-10 py-2 border border-gray-300 text-black rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      {/* Clear search button */}
+                      {searchTerm && (
+                        <button
+                          onClick={clearSearch}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        >
+                          <svg className="h-4 w-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                      
+                      {/* Search Status */}
+                      {isSearching && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-md shadow-sm border border-gray-200 z-30 p-3">
+                          <span className="flex items-center text-sm text-gray-600">
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Searching...
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Search Results Summary */}
+                      {!isSearching && searchResults && searchTerm && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-md shadow-sm border border-gray-200 z-30 p-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">
+                              Found {searchResults.total_count} result{searchResults.total_count !== 1 ? 's' : ''} for &ldquo;{searchResults.query}&rdquo;
+                              {searchResults.exact_matches?.length > 0 && (
+                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                  {searchResults.exact_matches.length} exact
+                                </span>
+                              )}
+                              {searchResults.fuzzy_matches?.length > 0 && (
+                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                  {searchResults.fuzzy_matches.length} similar
+                                </span>
+                              )}
+                            </span>
+                            <button
+                              onClick={() => {
+                                setSearchResults(null);
+                                setShowSearchResults(false);
+                              }}
+                              className="text-gray-400 hover:text-gray-600"
+                            >
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Filter Button */}
+                    <div className="relative" ref={filterDropdownRef}>
+                      <button
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={`flex items-center px-3 py-2 border rounded-md text-sm font-medium transition-colors ${
+                          hasActiveFilters 
+                            ? 'border-blue-500 text-blue-600 bg-blue-50' 
+                            : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                        }`}
+                      >
+                        <FunnelIcon className="h-4 w-4" />
+                        {hasActiveFilters && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {Object.values(filters).filter(f => f !== '').length}
+                          </span>
+                        )}
+                        <ChevronDownIcon className={`h-4 w-4 ml-1 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+                      </button>
+                    </div>
                   </div>
+                  
                   <div className="flex items-center space-x-3">
                     {/* View Toggle */}
                     <div className="flex bg-gray-100 rounded-md p-1">
@@ -1237,196 +1330,6 @@ export default function AutomationDatabase() {
                         </div>
                       )}
                     </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Search Bar */}
-              <div className="px-6 pb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="flex-1 relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Search automations..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="block w-full pl-10 pr-10 py-2 border border-gray-300 text-black rounded-md leading-5 bg-white placeholder-black-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    {/* Clear search button */}
-                    {searchTerm && (
-                      <button
-                        onClick={clearSearch}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                      >
-                        <svg className="h-4 w-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    )}
-                    
-                    {/* Search Status */}
-                    {isSearching && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-md shadow-sm border border-gray-200 z-30 p-3">
-                        <span className="flex items-center text-sm text-gray-600">
-                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Searching...
-                        </span>
-                      </div>
-                    )}
-                    
-                    {/* Search Results Summary */}
-                    {!isSearching && searchResults && searchTerm && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-md shadow-sm border border-gray-200 z-30 p-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">
-                            Found {searchResults.total_count} result{searchResults.total_count !== 1 ? 's' : ''} for &ldquo;{searchResults.query}&rdquo;
-                            {searchResults.exact_matches?.length > 0 && (
-                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                {searchResults.exact_matches.length} exact
-                              </span>
-                            )}
-                            {searchResults.fuzzy_matches?.length > 0 && (
-                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                                {searchResults.fuzzy_matches.length} similar
-                              </span>
-                            )}
-                          </span>
-                          <button
-                            onClick={() => {
-                              setSearchResults(null);
-                              setShowSearchResults(false);
-                            }}
-                            className="text-gray-400 hover:text-gray-600"
-                          >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Filter Button */}
-                  <div className="relative" ref={filterDropdownRef}>
-                    <button
-                      onClick={() => setShowFilters(!showFilters)}
-                      className={`flex items-center px-3 py-2 border rounded-md text-sm font-medium transition-colors ${
-                        hasActiveFilters 
-                          ? 'border-blue-500 text-blue-600 bg-blue-50' 
-                          : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
-                      }`}
-                    >
-                      <FunnelIcon className="h-4 w-4" />
-                      {hasActiveFilters && (
-                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {Object.values(filters).filter(f => f !== '').length}
-                        </span>
-                      )}
-                      <ChevronDownIcon className={`h-4 w-4 ml-1 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-                    </button>
-                    
-                    {/* Filter Dropdown */}
-                    {showFilters && (
-                      <div ref={filterDropdownRef} className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg border border-gray-200 z-10">
-                        <div className="p-4">
-                          <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-medium text-gray-900">Filters</h3>
-                            {hasActiveFilters && (
-                              <button
-                                onClick={clearFilters}
-                                className="text-sm text-blue-600 hover:text-blue-800"
-                              >
-                                Clear all
-                              </button>
-                            )}
-                          </div>
-                          
-                          <div className="space-y-4">
-                            {/* Type Filter */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                              <select
-                                value={filters.type}
-                                onChange={(e) => setFilters({...filters, type: e.target.value})}
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                              >
-                                <option value="">All types</option>
-                                {getUniqueValues('type').map(type => (
-                                  <option key={type} value={type}>{type}</option>
-                                ))}
-                              </select>
-                            </div>
-                            
-                            {/* Complexity Filter */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Complexity</label>
-                              <select
-                                value={filters.complexity}
-                                onChange={(e) => setFilters({...filters, complexity: e.target.value})}
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                              >
-                                <option value="">All complexities</option>
-                                <option value="low">Low</option>
-                                <option value="medium">Medium</option>
-                                <option value="high">High</option>
-                              </select>
-                            </div>
-                            
-                            {/* COE/FED Filter */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">COE/FED</label>
-                              <select
-                                value={filters.coe_fed}
-                                onChange={(e) => setFilters({...filters, coe_fed: e.target.value})}
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                              >
-                                <option value="">All COE/FED</option>
-                                {getUniqueValues('coe_fed').map(coe => (
-                                  <option key={coe} value={coe}>{coe}</option>
-                                ))}
-                              </select>
-                            </div>
-                            
-                            {/* Description Filter */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                              <select
-                                value={filters.hasDescription}
-                                onChange={(e) => setFilters({...filters, hasDescription: e.target.value})}
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                              >
-                                <option value="">All</option>
-                                <option value="with">With description</option>
-                                <option value="without">Without description</option>
-                              </select>
-                            </div>
-                            
-                            {/* Date Range Filter */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Created</label>
-                              <select
-                                value={filters.dateRange}
-                                onChange={(e) => setFilters({...filters, dateRange: e.target.value})}
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                              >
-                                <option value="">All time</option>
-                                <option value="today">Today</option>
-                                <option value="week">Past week</option>
-                                <option value="month">Past month</option>
-                                <option value="unknown">Unknown date</option>
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
