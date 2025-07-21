@@ -422,23 +422,6 @@ export default function AutomationTabView({
                 {filteredSidebarAutomations.length} of {automations.length} records
               </p>
             </div>
-            
-            {/* View Toggle */}
-            <div className="flex bg-gray-100 rounded-md p-1">
-              <button
-                onClick={() => onViewTypeChange('slide')}
-                className="flex items-center px-2 py-1 rounded-md text-xs font-medium transition-colors text-gray-500 hover:text-gray-700 hover:bg-gray-200"
-              >
-                <ViewColumnsIcon className="h-3 w-3 mr-1" />
-                Slide
-              </button>
-              <button
-                className="flex items-center px-2 py-1 rounded-md text-xs font-medium transition-colors bg-white text-gray-900 shadow-sm"
-              >
-                <RectangleStackIcon className="h-3 w-3 mr-1" />
-                Tab
-              </button>
-            </div>
           </div>
           
           {/* Sidebar Search */}
@@ -789,6 +772,23 @@ export default function AutomationTabView({
             </div>
             
             <div className="flex items-center space-x-3">
+              {/* View Toggle */}
+              <div className="flex bg-gray-100 rounded-md p-1">
+                <button
+                  onClick={() => onViewTypeChange('slide')}
+                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-500 hover:text-gray-700`}
+                >
+                  <ViewColumnsIcon className="h-4 w-4 mr-2" />
+                  Slide View
+                </button>
+                <button
+                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors bg-white text-gray-900 shadow-sm`}
+                >
+                  <RectangleStackIcon className="h-4 w-4 mr-2" />
+                  Tab View
+                </button>
+              </div>
+              
               <button
                 onClick={onAddAutomation}
                 className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
