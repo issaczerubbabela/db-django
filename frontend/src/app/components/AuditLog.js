@@ -36,14 +36,23 @@ const AuditLog = ({ isOpen, onToggle }) => {
       if (filters.object_type) params.append('object_type', filters.object_type);
       params.append('limit', filters.limit.toString());
 
-      const response = await fetch(`/api/automations/audit_logs?${params}`);
+      const url = `/api/automations/audit_logs?${params}`;
+      console.log('Fetching audit logs from:', url);
+      
+      const response = await fetch(url);
+      console.log('Audit logs response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Audit logs data:', data);
         setAuditLogs(data.audit_logs || []);
       } else {
+        const errorText = await response.text();
+        console.error('Failed to fetch audit logs:', response.status, errorText);
         setError('Failed to fetch audit logs');
       }
     } catch (err) {
+      console.error('Error fetching audit logs:', err);
       setError('Error fetching audit logs: ' + err.message);
     } finally {
       setLoading(false);
