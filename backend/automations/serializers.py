@@ -104,6 +104,7 @@ class AutomationSerializer(serializers.ModelSerializer):
 
 class AutomationCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating automations with nested related data"""
+    tool_name = serializers.CharField(required=False, write_only=True)
     people_data = serializers.ListField(child=serializers.DictField(), required=False, write_only=True)
     environments_data = serializers.ListField(child=serializers.DictField(), required=False, write_only=True)
     test_data_data = serializers.DictField(required=False, write_only=True)
@@ -114,6 +115,7 @@ class AutomationCreateSerializer(serializers.ModelSerializer):
         model = Automation
         fields = '__all__'
         extra_kwargs = {
+            'tool_name': {'write_only': True},
             'people_data': {'write_only': True},
             'environments_data': {'write_only': True},
             'test_data_data': {'write_only': True},
@@ -123,11 +125,17 @@ class AutomationCreateSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         # Extract nested data
+        tool_name = validated_data.pop('tool_name', None)
         people_data = validated_data.pop('people_data', [])
         environments_data = validated_data.pop('environments_data', [])
         test_data_data = validated_data.pop('test_data_data', {})
         metrics_data = validated_data.pop('metrics_data', {})
         artifacts_data = validated_data.pop('artifacts_data', {})
+        
+        # Handle tool creation/assignment
+        if tool_name:
+            tool, created = Tool.objects.get_or_create(name=tool_name)
+            validated_data['tool'] = tool
         
         # Create automation
         automation = Automation.objects.create(**validated_data)

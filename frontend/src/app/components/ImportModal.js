@@ -16,13 +16,34 @@ export default function ImportModal({ isOpen, onClose, onImport, existingAutomat
   const [syncResults, setSyncResults] = useState({ added: 0, updated: 0, deleted: 0, errors: [] });
   const fileInputRef = useRef(null);
 
-  // Template data structure based on the Automation model
+  // Template data structure based on the comprehensive Automation model
   const templateHeaders = [
+    // Core Automation fields
     'air_id', 'name', 'type', 'brief_description', 'coe_fed', 'complexity',
     'tool_version', 'process_details', 'object_details', 'queue',
     'shared_folders', 'shared_mailboxes', 'qa_handshake',
     'preprod_deploy_date', 'prod_deploy_date', 'warranty_end_date',
-    'comments', 'documentation', 'modified', 'path'
+    'comments', 'documentation', 'modified', 'path',
+    
+    // Tool information
+    'tool_name', 'tool_version_detail', 'tool_vendor', 'tool_installation_path',
+    'tool_license_type', 'tool_created_date', 'tool_last_updated',
+    
+    // Person roles
+    'business_analyst_name', 'business_analyst_role', 'business_analyst_contact',
+    'automation_developer_name', 'automation_developer_role', 'automation_developer_contact',
+    'automation_lead_name', 'automation_lead_role', 'automation_lead_contact',
+    'code_reviewer_name', 'code_reviewer_role', 'code_reviewer_contact',
+    'tester_name', 'tester_role', 'tester_contact',
+    
+    // Environment configurations
+    'dev_server_name', 'dev_connection_string', 'dev_access_credentials',
+    'preprod_server_name', 'preprod_connection_string', 'preprod_access_credentials',
+    'prod_server_name', 'prod_connection_string', 'prod_access_credentials',
+    'uat_server_name', 'uat_connection_string', 'uat_access_credentials',
+    
+    // Metrics data
+    'execution_time', 'success_rate', 'error_rate', 'performance_score'
   ];
 
   // Reset modal state when opening/closing and auto-open file selector

@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from .models import Automation
-from .serializers import AutomationSerializer
+from .serializers import AutomationSerializer, AutomationCreateSerializer
 from .search import AutomationSearchService
 
 
@@ -38,12 +38,14 @@ class AutomationViewSet(viewsets.ModelViewSet):
     
     def create(self, request, *args, **kwargs):
         """
-        Create a new automation.
+        Create a new automation with nested data support.
         """
-        serializer = self.get_serializer(data=request.data)
+        serializer = AutomationCreateSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            automation = serializer.save()
+            # Return the created automation using the read serializer
+            response_serializer = AutomationSerializer(automation)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     def update(self, request, *args, **kwargs):
@@ -70,7 +72,7 @@ class AutomationViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def bulk_create(self, request):
         """
-        Create multiple automations at once.
+        Create multiple automations at once with nested data support.
         """
         if not isinstance(request.data, list):
             return Response(
@@ -78,10 +80,12 @@ class AutomationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        serializer = self.get_serializer(data=request.data, many=True)
+        serializer = AutomationCreateSerializer(data=request.data, many=True)
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            automations = serializer.save()
+            # Return the created automations using the read serializer
+            response_serializer = AutomationSerializer(automations, many=True)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=False, methods=['get'])

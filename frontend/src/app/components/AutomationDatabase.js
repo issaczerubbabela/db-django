@@ -333,20 +333,19 @@ export default function AutomationDatabase() {
       if (values.length === headers.length) {
         const automation = {};
         headers.forEach((header, index) => {
-          // Direct field mapping - headers should match database fields exactly
           automation[header] = values[index] || '';
         });
         
-        // Validate and clean the automation data
+        // Build the comprehensive automation object with all fields
         const cleanedAutomation = {
+          // Core fields
           air_id: automation.air_id?.trim() || '',
           name: automation.name?.trim() || '',
           type: automation.type?.trim() || '',
           brief_description: automation.brief_description?.trim() || null,
           coe_fed: automation.coe_fed?.trim() || null,
           complexity: automation.complexity?.trim() || null,
-          // Combine tool and tool_version into tool_version field since DB doesn't have separate tool field
-          tool_version: automation.tool_version?.trim() || automation.tool?.trim() || null,
+          tool_version: automation.tool_version?.trim() || null,
           process_details: automation.process_details?.trim() || null,
           object_details: automation.object_details?.trim() || null,
           queue: automation.queue?.trim() || null,
@@ -359,15 +358,86 @@ export default function AutomationDatabase() {
           comments: automation.comments?.trim() || null,
           documentation: automation.documentation?.trim() || null,
           modified: automation.modified?.trim() || null,
-          // Skip modified_by since DB expects modified_by_id (foreign key)
           path: automation.path?.trim() || null,
-          // Initialize empty arrays/objects for related data
-          people: [],
-          environments: [],
-          test_data: {},
-          metrics: {},
-          artifacts: {}
+          
+          // Tool name for backend processing
+          tool_name: automation.tool_name?.trim() || null,
+          
+          // Build nested data structures for related models
+          people_data: [],
+          environments_data: [],
+          test_data_data: {},
+          metrics_data: {},
+          artifacts_data: {}
         };
+        
+        // Parse people data from all role fields
+        const peopleRoles = [
+          { role: 'business_analyst', name: automation.business_analyst_name?.trim(), 
+            contact: automation.business_analyst_contact?.trim() },
+          { role: 'automation_developer', name: automation.automation_developer_name?.trim(), 
+            contact: automation.automation_developer_contact?.trim() },
+          { role: 'automation_lead', name: automation.automation_lead_name?.trim(), 
+            contact: automation.automation_lead_contact?.trim() },
+          { role: 'code_reviewer', name: automation.code_reviewer_name?.trim(), 
+            contact: automation.code_reviewer_contact?.trim() },
+          { role: 'tester', name: automation.tester_name?.trim(), 
+            contact: automation.tester_contact?.trim() }
+        ];
+        
+        // Filter and add valid people with contact info
+        cleanedAutomation.people_data = peopleRoles.filter(person => person.name).map(person => ({
+          name: person.name,
+          role: person.role,
+          contact: person.contact || null
+        }));
+        
+        // Parse environment data for all environment types
+        const environments = [
+          { 
+            type: 'dev', 
+            server_name: automation.dev_server_name?.trim(),
+            connection_string: automation.dev_connection_string?.trim(),
+            access_credentials: automation.dev_access_credentials?.trim()
+          },
+          { 
+            type: 'preprod', 
+            server_name: automation.preprod_server_name?.trim(),
+            connection_string: automation.preprod_connection_string?.trim(),
+            access_credentials: automation.preprod_access_credentials?.trim()
+          },
+          { 
+            type: 'prod', 
+            server_name: automation.prod_server_name?.trim(),
+            connection_string: automation.prod_connection_string?.trim(),
+            access_credentials: automation.prod_access_credentials?.trim()
+          },
+          { 
+            type: 'uat', 
+            server_name: automation.uat_server_name?.trim(),
+            connection_string: automation.uat_connection_string?.trim(),
+            access_credentials: automation.uat_access_credentials?.trim()
+          }
+        ];
+        
+        cleanedAutomation.environments_data = environments.filter(env => 
+          env.server_name || env.connection_string || env.access_credentials
+        );
+        
+        // Parse metrics data from comprehensive fields
+        const executionTime = automation.execution_time?.trim();
+        const successRate = automation.success_rate?.trim();
+        const errorRate = automation.error_rate?.trim();
+        const performanceScore = automation.performance_score?.trim();
+        
+        if (executionTime || successRate || errorRate || performanceScore) {
+          cleanedAutomation.metrics_data = {
+            execution_time: executionTime ? parseFloat(executionTime) : null,
+            success_rate: successRate ? parseFloat(successRate) : null,
+            error_rate: errorRate ? parseFloat(errorRate) : null,
+            performance_score: performanceScore ? parseFloat(performanceScore) : null
+          };
+        }
         
         console.log('Cleaned automation:', cleanedAutomation);
         
@@ -626,6 +696,8 @@ export default function AutomationDatabase() {
       'Dev Service Account': automation.environments?.find(e => e.type === 'Development')?.service_account || '',
       'QA VDI': automation.environments?.find(e => e.type === 'QA')?.vdi || '',
       'QA Service Account': automation.environments?.find(e => e.type === 'QA')?.service_account || '',
+      'UAT VDI': automation.environments?.find(e => e.type === 'UAT')?.vdi || '',
+      'UAT Service Account': automation.environments?.find(e => e.type === 'UAT')?.service_account || '',
       'Production VDI': automation.environments?.find(e => e.type === 'Production')?.vdi || '',
       'Production Service Account': automation.environments?.find(e => e.type === 'Production')?.service_account || '',
       // Test Data
