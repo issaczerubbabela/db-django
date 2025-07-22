@@ -119,6 +119,7 @@ class AutomationSerializer(serializers.ModelSerializer):
 class AutomationCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating automations with nested related data"""
     tool_name = serializers.CharField(required=False, write_only=True)
+    modified_by_name = serializers.CharField(required=False, write_only=True)
     people_data = serializers.ListField(child=serializers.DictField(), required=False, write_only=True)
     environments_data = serializers.ListField(child=serializers.DictField(), required=False, write_only=True)
     test_data_data = serializers.DictField(required=False, write_only=True)
@@ -130,6 +131,7 @@ class AutomationCreateSerializer(serializers.ModelSerializer):
         fields = '__all__'
         extra_kwargs = {
             'tool_name': {'write_only': True},
+            'modified_by_name': {'write_only': True},
             'people_data': {'write_only': True},
             'environments_data': {'write_only': True},
             'test_data_data': {'write_only': True},
@@ -137,9 +139,20 @@ class AutomationCreateSerializer(serializers.ModelSerializer):
             'artifacts_data': {'write_only': True},
         }
     
+    def validate(self, data):
+        """Validate that required fields are present and not empty"""
+        if not data.get('air_id') or not data.get('air_id').strip():
+            raise serializers.ValidationError("AIR ID is required and cannot be empty")
+        if not data.get('name') or not data.get('name').strip():
+            raise serializers.ValidationError("Name is required and cannot be empty")
+        if not data.get('type') or not data.get('type').strip():
+            raise serializers.ValidationError("Type is required and cannot be empty")
+        return data
+    
     def create(self, validated_data):
         # Extract nested data
         tool_name = validated_data.pop('tool_name', None)
+        modified_by_name = validated_data.pop('modified_by_name', None)
         people_data = validated_data.pop('people_data', [])
         environments_data = validated_data.pop('environments_data', [])
         test_data_data = validated_data.pop('test_data_data', {})
@@ -150,6 +163,11 @@ class AutomationCreateSerializer(serializers.ModelSerializer):
         if tool_name:
             tool, created = Tool.objects.get_or_create(name=tool_name)
             validated_data['tool'] = tool
+        
+        # Handle modified_by person creation/assignment
+        if modified_by_name:
+            modified_by_person, created = Person.objects.get_or_create(name=modified_by_name)
+            validated_data['modified_by'] = modified_by_person
         
         # Create automation
         automation = Automation.objects.create(**validated_data)

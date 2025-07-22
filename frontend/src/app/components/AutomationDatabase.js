@@ -144,7 +144,7 @@ export default function AutomationDatabase() {
     console.log(`🔍 Starting search for: "${query}"`);
     
     try {
-      const response = await fetch(`/api/automations/search?q=${encodeURIComponent(query)}&limit=50&fuzzy=true`);
+      const response = await fetch(`/api/automations/search/?q=${encodeURIComponent(query)}&limit=50&fuzzy=true`);
       if (response.ok) {
         const data = await response.json();
         
@@ -222,7 +222,7 @@ export default function AutomationDatabase() {
   const fetchAutomations = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/automations');
+      const response = await fetch('/api/automations/');
       if (response.ok) {
         const data = await response.json();
         // Ensure data is an array
@@ -246,7 +246,7 @@ export default function AutomationDatabase() {
 
   const handleCreateAutomation = async (automationData) => {
     try {
-      const response = await fetch('/api/automations', {
+      const response = await fetch('/api/automations/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -272,7 +272,7 @@ export default function AutomationDatabase() {
     }
 
     try {
-      const response = await fetch(`/api/automations/${airId}`, {
+      const response = await fetch(`/api/automations/${airId}/`, {
         method: 'DELETE',
       });
 
@@ -301,6 +301,23 @@ export default function AutomationDatabase() {
   const parseCsvData = (csvText) => {
     const lines = csvText.split('\n').filter(line => line.trim());
     if (lines.length < 2) return [];
+
+    // Helper function to parse dates
+    const parseDate = (dateStr) => {
+      if (!dateStr || !dateStr.trim()) return null;
+      const trimmed = dateStr.trim();
+      if (trimmed === '') return null;
+      
+      try {
+        // Handle ISO date format (e.g., "2024-01-15T09:30:00Z")
+        const date = new Date(trimmed);
+        if (isNaN(date.getTime())) return null;
+        return date.toISOString();
+      } catch (error) {
+        console.warn('Failed to parse date:', trimmed);
+        return null;
+      }
+    };
 
     // Parse CSV with proper handling of quoted fields containing commas
     const parseCSVLine = (line) => {
@@ -338,32 +355,81 @@ export default function AutomationDatabase() {
           automation[header] = values[index] || '';
         });
         
+        // Map CSV headers to expected field names
+        const fieldMapping = {
+          'AIR ID': 'air_id',
+          'Name': 'name',
+          'Type': 'type',
+          'Brief Description': 'brief_description',
+          'COE/FED': 'coe_fed',
+          'Complexity': 'complexity',
+          'Tool': 'tool_name',
+          'Tool Version': 'tool_version',
+          'Process Details': 'process_details',
+          'Object Details': 'object_details',
+          'Queue': 'queue',
+          'Shared Folders': 'shared_folders',
+          'Shared Mailboxes': 'shared_mailboxes',
+          'QA Handshake': 'qa_handshake',
+          'PreProd Deploy Date': 'preprod_deploy_date',
+          'Prod Deploy Date': 'prod_deploy_date',
+          'Warranty End Date': 'warranty_end_date',
+          'Comments': 'comments',
+          'Documentation': 'documentation',
+          'Modified': 'modified',
+          'Modified By': 'modified_by_name',
+          'Path': 'path',
+          'Created At': 'created_at',
+          'Updated At': 'updated_at',
+          'Project Manager': 'project_manager',
+          'Project Designer': 'project_designer',
+          'Developer': 'developer',
+          'Tester': 'tester',
+          'Business SPOC': 'business_spoc',
+          'Business Stakeholders': 'business_stakeholders',
+          'Applications-App Owner': 'app_owner',
+          'Dev VDI': 'dev_vdi',
+          'Dev Service Account': 'dev_service_account',
+          'QA VDI': 'qa_vdi',
+          'QA Service Account': 'qa_service_account',
+          'Production VDI': 'production_vdi',
+          'Production Service Account': 'production_service_account',
+          'Test Data SPOC': 'test_data_spoc',
+          'Post Production Total Cases': 'post_prod_total_cases',
+          'Post Production System Exceptions Count': 'post_prod_sys_ex_count',
+          'Post Production Success Rate': 'post_prod_success_rate',
+          'Automation Artifacts Link': 'artifacts_link',
+          'Code Review with M&E': 'code_review',
+          'Automation Demo to M&E': 'demo',
+          'Rampup/Postprod Issue/Resolution list to M&E': 'rampup_issue_list'
+        };
+
         // Build the comprehensive automation object with all fields
         const cleanedAutomation = {
           // Core fields
-          air_id: automation.air_id?.trim() || '',
-          name: automation.name?.trim() || '',
-          type: automation.type?.trim() || '',
-          brief_description: automation.brief_description?.trim() || null,
-          coe_fed: automation.coe_fed?.trim() || null,
-          complexity: automation.complexity?.trim() || null,
-          tool_version: automation.tool_version?.trim() || null,
-          process_details: automation.process_details?.trim() || null,
-          object_details: automation.object_details?.trim() || null,
-          queue: automation.queue?.trim() || null,
-          shared_folders: automation.shared_folders?.trim() || null,
-          shared_mailboxes: automation.shared_mailboxes?.trim() || null,
-          qa_handshake: automation.qa_handshake?.trim() || null,
-          preprod_deploy_date: automation.preprod_deploy_date?.trim() || null,
-          prod_deploy_date: automation.prod_deploy_date?.trim() || null,
-          warranty_end_date: automation.warranty_end_date?.trim() || null,
-          comments: automation.comments?.trim() || null,
-          documentation: automation.documentation?.trim() || null,
-          modified: automation.modified?.trim() || null,
-          path: automation.path?.trim() || null,
+          air_id: automation['AIR ID']?.trim() || '',
+          name: automation['Name']?.trim() || '',
+          type: automation['Type']?.trim() || '',
+          brief_description: automation['Brief Description']?.trim() || null,
+          coe_fed: automation['COE/FED']?.trim() || null,
+          complexity: automation['Complexity']?.trim() || null,
+          tool_version: automation['Tool Version']?.trim() || null,
+          process_details: automation['Process Details']?.trim() || null,
+          object_details: automation['Object Details']?.trim() || null,
+          queue: automation['Queue']?.trim() || null,
+          shared_folders: automation['Shared Folders']?.trim() || null,
+          shared_mailboxes: automation['Shared Mailboxes']?.trim() || null,
+          qa_handshake: automation['QA Handshake']?.trim() || null,
+          preprod_deploy_date: parseDate(automation['PreProd Deploy Date']),
+          prod_deploy_date: parseDate(automation['Prod Deploy Date']),
+          warranty_end_date: parseDate(automation['Warranty End Date']),
+          comments: automation['Comments']?.trim() || null,
+          documentation: automation['Documentation']?.trim() || null,
+          modified: parseDate(automation['Modified']),
+          path: automation['Path']?.trim() || null,
           
           // Tool name for backend processing
-          tool_name: automation.tool_name?.trim() || null,
+          tool_name: automation['Tool']?.trim() || null,
           
           // Build nested data structures for related models
           people_data: [],
@@ -373,71 +439,129 @@ export default function AutomationDatabase() {
           artifacts_data: {}
         };
         
-        // Parse people data from all role fields
-        const peopleRoles = [
-          { role: 'business_analyst', name: automation.business_analyst_name?.trim(), 
-            contact: automation.business_analyst_contact?.trim() },
-          { role: 'automation_developer', name: automation.automation_developer_name?.trim(), 
-            contact: automation.automation_developer_contact?.trim() },
-          { role: 'automation_lead', name: automation.automation_lead_name?.trim(), 
-            contact: automation.automation_lead_contact?.trim() },
-          { role: 'code_reviewer', name: automation.code_reviewer_name?.trim(), 
-            contact: automation.code_reviewer_contact?.trim() },
-          { role: 'tester', name: automation.tester_name?.trim(), 
-            contact: automation.tester_contact?.trim() }
-        ];
+        // Parse people data from role fields
+        const peopleRoles = [];
         
-        // Filter and add valid people with contact info
-        cleanedAutomation.people_data = peopleRoles.filter(person => person.name).map(person => ({
-          name: person.name,
-          role: person.role,
-          contact: person.contact || null
-        }));
+        // Add people with their roles based on CSV data
+        if (automation['Project Manager']?.trim()) {
+          peopleRoles.push({ 
+            role: 'project_manager', 
+            name: automation['Project Manager'].trim() 
+          });
+        }
+        if (automation['Project Designer']?.trim()) {
+          peopleRoles.push({ 
+            role: 'project_designer', 
+            name: automation['Project Designer'].trim() 
+          });
+        }
+        if (automation['Developer']?.trim()) {
+          peopleRoles.push({ 
+            role: 'developer', 
+            name: automation['Developer'].trim() 
+          });
+        }
+        if (automation['Tester']?.trim()) {
+          peopleRoles.push({ 
+            role: 'tester', 
+            name: automation['Tester'].trim() 
+          });
+        }
+        if (automation['Business SPOC']?.trim()) {
+          peopleRoles.push({ 
+            role: 'business_spoc', 
+            name: automation['Business SPOC'].trim() 
+          });
+        }
+        if (automation['Applications-App Owner']?.trim()) {
+          peopleRoles.push({ 
+            role: 'app_owner', 
+            name: automation['Applications-App Owner'].trim() 
+          });
+        }
+        
+        // Handle Business Stakeholders (might be multiple, separated by semicolon)
+        if (automation['Business Stakeholders']?.trim()) {
+          const stakeholders = automation['Business Stakeholders'].split(';');
+          stakeholders.forEach(stakeholder => {
+            if (stakeholder.trim()) {
+              peopleRoles.push({
+                role: 'business_stakeholder',
+                name: stakeholder.trim()
+              });
+            }
+          });
+        }
+        
+        // Add Modified By person
+        if (automation['Modified By']?.trim()) {
+          // Modified By will be handled by the backend when creating the person
+          cleanedAutomation.modified_by_name = automation['Modified By'].trim();
+        }
+        
+        cleanedAutomation.people_data = peopleRoles;
         
         // Parse environment data for all environment types
-        const environments = [
-          { 
-            type: 'dev', 
-            server_name: automation.dev_server_name?.trim(),
-            connection_string: automation.dev_connection_string?.trim(),
-            access_credentials: automation.dev_access_credentials?.trim()
-          },
-          { 
-            type: 'preprod', 
-            server_name: automation.preprod_server_name?.trim(),
-            connection_string: automation.preprod_connection_string?.trim(),
-            access_credentials: automation.preprod_access_credentials?.trim()
-          },
-          { 
-            type: 'prod', 
-            server_name: automation.prod_server_name?.trim(),
-            connection_string: automation.prod_connection_string?.trim(),
-            access_credentials: automation.prod_access_credentials?.trim()
-          },
-          { 
-            type: 'uat', 
-            server_name: automation.uat_server_name?.trim(),
-            connection_string: automation.uat_connection_string?.trim(),
-            access_credentials: automation.uat_access_credentials?.trim()
-          }
-        ];
+        const environments = [];
         
-        cleanedAutomation.environments_data = environments.filter(env => 
-          env.server_name || env.connection_string || env.access_credentials
-        );
+        if (automation['Dev VDI']?.trim() || automation['Dev Service Account']?.trim()) {
+          environments.push({
+            type: 'dev',
+            vdi: automation['Dev VDI']?.trim() || '',
+            service_account: automation['Dev Service Account']?.trim() || ''
+          });
+        }
+        
+        if (automation['QA VDI']?.trim() || automation['QA Service Account']?.trim()) {
+          environments.push({
+            type: 'qa',
+            vdi: automation['QA VDI']?.trim() || '',
+            service_account: automation['QA Service Account']?.trim() || ''
+          });
+        }
+        
+        if (automation['Production VDI']?.trim() || automation['Production Service Account']?.trim()) {
+          environments.push({
+            type: 'prod',
+            vdi: automation['Production VDI']?.trim() || '',
+            service_account: automation['Production Service Account']?.trim() || ''
+          });
+        }
+        
+        cleanedAutomation.environments_data = environments;
+        
+        // Parse test data
+        if (automation['Test Data SPOC']?.trim()) {
+          cleanedAutomation.test_data_data = {
+            spoc: automation['Test Data SPOC'].trim()
+          };
+        }
         
         // Parse metrics data from comprehensive fields
-        const executionTime = automation.execution_time?.trim();
-        const successRate = automation.success_rate?.trim();
-        const errorRate = automation.error_rate?.trim();
-        const performanceScore = automation.performance_score?.trim();
+        const totalCases = automation['Post Production Total Cases']?.trim();
+        const exceptionsCount = automation['Post Production System Exceptions Count']?.trim();
+        const successRate = automation['Post Production Success Rate']?.trim();
         
-        if (executionTime || successRate || errorRate || performanceScore) {
+        if (totalCases || exceptionsCount || successRate) {
           cleanedAutomation.metrics_data = {
-            execution_time: executionTime ? parseFloat(executionTime) : null,
-            success_rate: successRate ? parseFloat(successRate) : null,
-            error_rate: errorRate ? parseFloat(errorRate) : null,
-            performance_score: performanceScore ? parseFloat(performanceScore) : null
+            post_prod_total_cases: totalCases ? parseInt(totalCases) : null,
+            post_prod_sys_ex_count: exceptionsCount ? parseInt(exceptionsCount) : null,
+            post_prod_success_rate: successRate ? parseFloat(successRate) : null
+          };
+        }
+        
+        // Parse artifacts data
+        const artifactsLink = automation['Automation Artifacts Link']?.trim();
+        const codeReview = automation['Code Review with M&E']?.trim();
+        const demo = automation['Automation Demo to M&E']?.trim();
+        const rampupIssue = automation['Rampup/Postprod Issue/Resolution list to M&E']?.trim();
+        
+        if (artifactsLink || codeReview || demo || rampupIssue) {
+          cleanedAutomation.artifacts_data = {
+            artifacts_link: artifactsLink || null,
+            code_review: codeReview || null,
+            demo: demo || null,
+            rampup_issue_list: rampupIssue || null
           };
         }
         
@@ -492,7 +616,7 @@ export default function AutomationDatabase() {
       for (const automation of csvAutomations) {
         try {
           console.log('Importing automation:', automation.air_id);
-          const response = await fetch('/api/automations', {
+          const response = await fetch('/api/automations/', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
