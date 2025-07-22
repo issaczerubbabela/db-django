@@ -1,5 +1,36 @@
 from django.db import models
 from django.utils import timezone
+import json
+
+
+class AuditLog(models.Model):
+    ACTION_CHOICES = [
+        ('create', 'Create'),
+        ('update', 'Update'),
+        ('delete', 'Delete'),
+        ('import', 'Import'),
+        ('export', 'Export'),
+        ('bulk_create', 'Bulk Create'),
+        ('search', 'Search'),
+        ('view', 'View'),
+    ]
+    
+    id = models.AutoField(primary_key=True)
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    object_type = models.CharField(max_length=50)  # e.g., 'Automation', 'Person', etc.
+    object_id = models.CharField(max_length=100, blank=True, null=True)  # The ID of the affected object
+    object_name = models.CharField(max_length=500, blank=True, null=True)  # Human-readable name
+    user_ip = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.TextField(blank=True, null=True)
+    details = models.JSONField(blank=True, null=True)  # Additional context like field changes
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'audit_logs'
+        ordering = ['-timestamp']
+    
+    def __str__(self):
+        return f"{self.action} {self.object_type} {self.object_id or ''} at {self.timestamp}"
 
 
 class Tool(models.Model):

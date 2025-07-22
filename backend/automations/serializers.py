@@ -1,5 +1,19 @@
 from rest_framework import serializers
-from .models import Automation, Tool, Person, AutomationPersonRole, Environment, TestData, Metrics, Artifacts
+from .models import Automation, Tool, Person, AutomationPersonRole, Environment, TestData, Metrics, Artifacts, AuditLog
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    action_display = serializers.CharField(source='get_action_display', read_only=True)
+    timestamp_formatted = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = AuditLog
+        fields = ['id', 'action', 'action_display', 'object_type', 'object_id', 'object_name', 
+                 'user_ip', 'user_agent', 'details', 'timestamp', 'timestamp_formatted']
+        read_only_fields = ['timestamp']
+    
+    def get_timestamp_formatted(self, obj):
+        return obj.timestamp.strftime('%Y-%m-%d %H:%M:%S')
 
 
 class ToolSerializer(serializers.ModelSerializer):

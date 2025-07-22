@@ -1,5 +1,24 @@
 from django.contrib import admin
-from .models import Automation, Tool, Person, AutomationPersonRole, Environment, TestData, Metrics, Artifacts
+from .models import Automation, Tool, Person, AutomationPersonRole, Environment, TestData, Metrics, Artifacts, AuditLog
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ['id', 'action', 'object_type', 'object_id', 'object_name', 'user_ip', 'timestamp']
+    list_filter = ['action', 'object_type', 'timestamp']
+    search_fields = ['object_id', 'object_name', 'user_ip']
+    readonly_fields = ['id', 'action', 'object_type', 'object_id', 'object_name', 'user_ip', 'user_agent', 'details', 'timestamp']
+    date_hierarchy = 'timestamp'
+    ordering = ['-timestamp']
+    
+    def has_add_permission(self, request):
+        return False  # Prevent manual creation of audit logs
+    
+    def has_change_permission(self, request, obj=None):
+        return False  # Prevent modification of audit logs
+    
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser  # Only superusers can delete audit logs
 
 
 @admin.register(Tool)

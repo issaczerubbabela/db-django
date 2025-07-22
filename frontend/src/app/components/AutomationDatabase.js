@@ -8,6 +8,7 @@ import AutomationForm from './AutomationForm';
 import AutomationFormComplete from './AutomationFormComplete';
 import AutomationTabView from './AutomationTabView';
 import ImportModal from './ImportModal';
+import AuditLog from './AuditLog';
 
 export default function AutomationDatabase() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,6 +28,7 @@ export default function AutomationDatabase() {
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [editingCell, setEditingCell] = useState(null); // { airId, field }
   const [editingValue, setEditingValue] = useState('');
+  const [isAuditLogOpen, setIsAuditLogOpen] = useState(false);
   const [filters, setFilters] = useState({
     // Basic fields
     type: '',
@@ -2262,8 +2264,12 @@ export default function AutomationDatabase() {
                     )}
                   </p>
                 </div>
-                <div className="text-sm text-gray-500">
-                  Last updated: {new Date().toLocaleDateString()}
+                <div className="text-sm text-gray-500 flex items-center justify-between">
+                  <span>Last updated: {new Date().toLocaleDateString()}</span>
+                  <AuditLog 
+                    isOpen={isAuditLogOpen} 
+                    onToggle={() => setIsAuditLogOpen(!isAuditLogOpen)}
+                  />
                 </div>
               </div>
             </div>
