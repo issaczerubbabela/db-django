@@ -178,7 +178,7 @@ def test_csv_import():
     """Test CSV import functionality"""
     
     # Parse the real CSV file
-    csv_file = 'd:/Repositories/db-django/example_automation_data.csv'
+    csv_file = 'd:/Repositories/db-django/samples/example_automation_data.csv'
     automations = parse_csv_like_frontend(csv_file)
     
     print(f"\nParsed {len(automations)} automations from CSV")

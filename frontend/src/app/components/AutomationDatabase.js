@@ -299,9 +299,6 @@ export default function AutomationDatabase() {
   };
 
   const parseCsvData = (csvText) => {
-    const lines = csvText.split('\n').filter(line => line.trim());
-    if (lines.length < 2) return [];
-
     // Helper function to parse dates
     const parseDate = (dateStr) => {
       if (!dateStr || !dateStr.trim()) return null;
@@ -319,40 +316,92 @@ export default function AutomationDatabase() {
       }
     };
 
-    // Parse CSV with proper handling of quoted fields containing commas
-    const parseCSVLine = (line) => {
-      const result = [];
-      let current = '';
-      let inQuotes = false;
+    // Use a more robust CSV parser that handles quoted fields with newlines and commas
+    const parseCSV = (csvText) => {
+      const rows = [];
+      let currentRow = [];
+      let currentField = '';
+      let insideQuotes = false;
+      let i = 0;
       
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
+      while (i < csvText.length) {
+        const char = csvText[i];
+        const nextChar = csvText[i + 1];
         
         if (char === '"') {
-          inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-          result.push(current.trim());
-          current = '';
+          if (insideQuotes && nextChar === '"') {
+            // Escaped quote - add one quote to field
+            currentField += '"';
+            i += 2;
+            continue;
+          } else if (insideQuotes) {
+            // End quote
+            insideQuotes = false;
+          } else {
+            // Start quote
+            insideQuotes = true;
+          }
+        } else if (char === ',' && !insideQuotes) {
+          // Field separator
+          currentRow.push(currentField.trim());
+          currentField = '';
+        } else if ((char === '\n' || char === '\r') && !insideQuotes) {
+          // Row separator
+          if (currentField || currentRow.length > 0) {
+            currentRow.push(currentField.trim());
+            if (currentRow.some(field => field !== '')) {
+              rows.push(currentRow);
+            }
+            currentRow = [];
+            currentField = '';
+          }
+          // Skip \r\n combination
+          if (char === '\r' && nextChar === '\n') {
+            i++;
+          }
         } else {
-          current += char;
+          currentField += char;
+        }
+        i++;
+      }
+      
+      // Add final field and row if there's content
+      if (currentField || currentRow.length > 0) {
+        currentRow.push(currentField.trim());
+        if (currentRow.some(field => field !== '')) {
+          rows.push(currentRow);
         }
       }
-      result.push(current.trim());
-      return result;
+      
+      return rows;
     };
 
-    const headers = parseCSVLine(lines[0]);
-    console.log('CSV Headers:', headers);
+    const rows = parseCSV(csvText);
+    if (rows.length < 2) {
+      console.warn('CSV must have at least header row and one data row');
+      return [];
+    }
+
+    const headers = rows[0];
+    console.log('📋 CSV Headers:', headers.length, 'headers found');
+    console.log('🏷️  First 5 headers:', headers.slice(0, 5));
     const automations = [];
 
-    for (let i = 1; i < lines.length; i++) {
-      const values = parseCSVLine(lines[i]);
-      console.log(`Line ${i} values count: ${values.length}, headers count: ${headers.length}`);
+    for (let i = 1; i < rows.length; i++) {
+      const values = rows[i];
+      console.log(`📝 Line ${i}: parsed ${values.length} values (expected ${headers.length})`);
       
       if (values.length === headers.length) {
         const automation = {};
         headers.forEach((header, index) => {
           automation[header] = values[index] || '';
+        });
+        
+        // Log the raw extracted values for debugging
+        console.log(`🔍 Line ${i} field extraction:`, {
+          'AIR ID': `"${automation['AIR ID']}"`,
+          'Name': `"${automation['Name']}"`,
+          'Type': `"${automation['Type']}"`
         });
         
         // Map CSV headers to expected field names
@@ -570,11 +619,17 @@ export default function AutomationDatabase() {
         // Ensure required fields exist and are not empty
         if (cleanedAutomation.air_id && cleanedAutomation.name && cleanedAutomation.type) {
           automations.push(cleanedAutomation);
+          console.log(`✅ Valid automation ${i}: ${cleanedAutomation.air_id} - ${cleanedAutomation.name}`);
         } else {
-          console.warn(`Skipping automation on line ${i}: missing required fields`, {
-            air_id: cleanedAutomation.air_id,
-            name: cleanedAutomation.name,
-            type: cleanedAutomation.type
+          console.warn(`⚠️ Skipping automation on line ${i}: missing required fields`, {
+            air_id: cleanedAutomation.air_id || '(empty)',
+            name: cleanedAutomation.name || '(empty)', 
+            type: cleanedAutomation.type || '(empty)'
+          });
+          console.warn(`Raw data for line ${i}:`, {
+            'AIR ID': automation['AIR ID'],
+            'Name': automation['Name'],
+            'Type': automation['Type']
           });
         }
       } else {
@@ -600,11 +655,18 @@ export default function AutomationDatabase() {
       console.log('First 200 characters:', text.substring(0, 200));
       
       const csvAutomations = parseCsvData(text);
-      console.log('Parsed automations:', csvAutomations.length);
-      console.log('First automation:', csvAutomations[0]);
+      console.log('📊 CSV Parsing Results:');
+      console.log(`  - Total lines in CSV: ${text.split('\n').length}`);
+      console.log(`  - Non-empty lines: ${text.split('\n').filter(line => line.trim()).length}`);
+      console.log(`  - Valid automations parsed: ${csvAutomations.length}`);
+      console.log('First automation sample:', csvAutomations[0]);
       
       if (csvAutomations.length === 0) {
-        alert('No valid automation data found in CSV. Please check that the CSV has the correct headers and data format.');
+        alert('No valid automation data found in CSV. Please check that:\n' +
+              '1. The CSV has the correct headers (AIR ID, Name, Type are required)\n' +
+              '2. Each row has data in the AIR ID, Name, and Type columns\n' +
+              '3. The file is properly formatted as CSV\n' +
+              '\nCheck the browser console for detailed parsing information.');
         return;
       }
 
@@ -626,12 +688,25 @@ export default function AutomationDatabase() {
 
           if (response.ok) {
             successCount++;
-            console.log('Successfully imported:', automation.air_id);
+            console.log('✅ Successfully imported:', automation.air_id);
           } else {
             errorCount++;
-            const errorText = await response.text();
-            console.error('Failed to import:', automation.air_id, 'Error:', errorText);
-            errors.push(`${automation.air_id}: ${errorText}`);
+            let errorText = await response.text();
+            console.error('❌ Failed to import:', automation.air_id, 'Status:', response.status, 'Error:', errorText);
+            
+            // Try to parse the error as JSON for better formatting
+            try {
+              const errorData = JSON.parse(errorText);
+              const errorDetails = [];
+              for (const [field, messages] of Object.entries(errorData)) {
+                errorDetails.push(`${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`);
+              }
+              errorText = errorDetails.join('; ');
+            } catch (e) {
+              // Use raw error text if JSON parsing fails
+            }
+            
+            errors.push(`Row ${csvAutomations.indexOf(automation) + 1}: ${automation.air_id || 'Unknown'} - ${errorText}`);
           }
         } catch (error) {
           errorCount++;

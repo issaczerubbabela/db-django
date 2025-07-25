@@ -49,6 +49,33 @@ See [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) for detailed field ma
    - **FastAPI**: http://localhost:8001
    - **API Docs**: http://localhost:8001/docs
 
+## 📁 Project Structure
+
+```
+db-django/
+├── backend/                 # Django backend application
+│   ├── automations/        # Main app with models, views, serializers
+│   ├── automation_db/      # Django project settings
+│   └── manage.py           # Django management commands
+├── frontend/               # Next.js React frontend
+│   ├── src/               # Source code
+│   └── public/            # Static assets
+├── docs/                  # 📚 Documentation files
+│   ├── README_*.md        # Various README versions
+│   ├── IMPLEMENTATION_STATUS.md
+│   └── *_IMPLEMENTATION.md
+├── tests/                 # 🧪 Test files and debugging scripts
+│   ├── test_*.py          # Unit and integration tests
+│   ├── analyze_*.py       # Analysis tools
+│   └── debug_*.py         # Debugging utilities
+├── samples/               # 📊 Sample data and configurations
+│   ├── *.csv              # Sample CSV data files
+│   └── *.json             # Configuration examples
+├── setup_all.*            # Setup scripts
+├── start_all.*            # Startup scripts
+└── README.md              # Main project documentation
+```
+
 ## 🏗️ Architecture
 
 ### System Components

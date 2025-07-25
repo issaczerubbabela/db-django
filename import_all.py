@@ -190,7 +190,7 @@ def parse_csv_data(csv_file_path):
 def import_all_automations():
     """Import all automations from CSV"""
     
-    csv_file = 'd:/Repositories/db-django/example_automation_data.csv'
+    csv_file = 'samples/example_automation_data.csv'
     automations = parse_csv_data(csv_file)
     
     print(f"\n📊 Parsed {len(automations)} automations from CSV")

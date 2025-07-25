@@ -80,6 +80,11 @@ coverage/
 tmp/
 temp/
 
+# Sample/test data files (ignore generated/exported files)
+samples/exported_*.csv
+samples/generated_*.csv
+samples/temp_*.json
+
 # Lock files
 package-lock.json
 yarn.lock
@@ -88,3 +93,11 @@ bun.lock
 # Build outputs
 dist/
 build/
+
+# Debugging/analysis files
+analyze_*.py
+debug_*.py
+simulate_*.py
+
+# Exported data
+exported_*
