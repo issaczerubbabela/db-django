@@ -576,55 +576,6 @@ export default function AutomationTabView({
     <div className="flex h-full bg-gray-50">
       {/* Left Sidebar - Automation List */}
       <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-        {/* Sidebar Header */}
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h3 className="text-lg font-medium text-gray-900">Automations</h3>
-              <div className="text-xs text-gray-500 mt-1">
-                {showSearchResults && searchResults && searchResults.total_count > 0 ? (
-                  <div className="space-y-1">
-                    <div>
-                      {filteredSidebarAutomations.length} of {automations.length} records
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      {searchResults.exact_matches && searchResults.exact_matches.length > 0 && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                          {searchResults.exact_matches.length} exact
-                        </span>
-                      )}
-                      {searchResults.fuzzy_matches && searchResults.fuzzy_matches.length > 0 && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                          {searchResults.fuzzy_matches.length} similar
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <span>{filteredSidebarAutomations.length} of {automations.length} records</span>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* Color Legend for Search Results */}
-          {showSearchResults && searchResults && searchResults.total_count > 0 && (
-            <div className="p-2 bg-gray-50 rounded-md">
-              <p className="text-xs text-gray-600 mb-1">Search Results:</p>
-              <div className="flex items-center space-x-3 text-xs">
-                <div className="flex items-center">
-                  <div className="w-2 h-2 bg-green-500 rounded mr-1"></div>
-                  <span className="text-gray-600">Exact matches</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-2 h-2 bg-yellow-500 rounded mr-1"></div>
-                  <span className="text-gray-600">Similar matches</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* Automation List */}
         <div className="flex-1 overflow-y-auto">
           {filteredSidebarAutomations.length > 0 ? (
@@ -688,234 +639,6 @@ export default function AutomationTabView({
 
       {/* Right Content Area */}
       <div className="flex-1 flex flex-col">
-        {/* Global Search Header */}
-        <div className="bg-white border-b border-gray-200 p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3 flex-1">
-              <div className="flex-1 relative max-w-md">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search across all fields..."
-                  value={searchTerm}
-                  onChange={(e) => onSearchChange(e.target.value)}
-                  className="block w-full pl-10 pr-10 py-2 border border-gray-300 text-black rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                />
-                {/* Clear search button */}
-                {searchTerm && (
-                  <button
-                    onClick={onClearSearch}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  >
-                    <svg className="h-4 w-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
-              </div>              {/* Filter Button */}
-              <div className="relative">
-                <button
-                  onClick={() => onToggleFilters(!showFilters)}
-                  className={`flex items-center px-3 py-2 border rounded-md text-sm font-medium transition-colors ${
-                    hasActiveFilters 
-                      ? 'border-blue-500 text-blue-600 bg-blue-50' 
-                      : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
-                  }`}
-                >
-                  <FunnelIcon className="h-4 w-4" />
-                  {hasActiveFilters && (
-                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {Object.values(filters).filter(f => f !== '').length}
-                    </span>
-                  )}
-                  <ChevronDownIcon className={`h-4 w-4 ml-1 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-                </button>
-                
-                {/* Filter Dropdown */}
-                {showFilters && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg border border-gray-200 z-10">
-                    <div className="p-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-medium text-gray-900">Filters</h3>
-                        {hasActiveFilters && (
-                          <button
-                            onClick={onClearFilters}
-                            className="text-sm text-blue-600 hover:text-blue-800"
-                          >
-                            Clear all
-                          </button>
-                        )}
-                      </div>
-                      
-                      <div className="space-y-4">
-                        {/* Type Filter */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                          <select
-                            value={filters.type}
-                            onChange={(e) => onFiltersChange({...filters, type: e.target.value})}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                          >
-                            <option value="" className="text-gray-800">All types</option>
-                            {getUniqueValues('type').map(type => (
-                              <option key={type} value={type} className="text-gray-800">{type}</option>
-                            ))}
-                          </select>
-                        </div>
-                        
-                        {/* Complexity Filter */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Complexity</label>
-                          <select
-                            value={filters.complexity}
-                            onChange={(e) => onFiltersChange({...filters, complexity: e.target.value})}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                          >
-                            <option value="" className="text-gray-800">All complexities</option>
-                            <option value="Low" className="text-gray-800">Low</option>
-                            <option value="Medium" className="text-gray-800">Medium</option>
-                            <option value="High" className="text-gray-800">High</option>
-                          </select>
-                        </div>
-                        
-                        {/* COE/FED Filter */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">COE/FED</label>
-                          <select
-                            value={filters.coe_fed}
-                            onChange={(e) => onFiltersChange({...filters, coe_fed: e.target.value})}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                          >
-                            <option value="" className="text-gray-800">All COE/FED</option>
-                            {getUniqueValues('coe_fed').map(coe => (
-                              <option key={coe} value={coe} className="text-gray-800">{coe}</option>
-                            ))}
-                          </select>
-                        </div>
-                        
-                        {/* Description Filter */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                          <select
-                            value={filters.hasDescription}
-                            onChange={(e) => onFiltersChange({...filters, hasDescription: e.target.value})}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                          >
-                            <option value="" className="text-gray-800">All</option>
-                            <option value="with" className="text-gray-800">With description</option>
-                            <option value="without" className="text-gray-800">Without description</option>
-                          </select>
-                        </div>
-                        
-                        {/* Date Range Filter */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Created</label>
-                          <select
-                            value={filters.dateRange}
-                            onChange={(e) => onFiltersChange({...filters, dateRange: e.target.value})}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                          >
-                            <option value="" className="text-gray-800">All time</option>
-                            <option value="today" className="text-gray-800">Today</option>
-                            <option value="week" className="text-gray-800">Past week</option>
-                            <option value="month" className="text-gray-800">Past month</option>
-                            <option value="unknown" className="text-gray-800">Unknown date</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              {/* View Toggle */}
-              <div className="flex bg-gray-100 rounded-md p-1">
-                <button
-                  onClick={() => onViewTypeChange('slide')}
-                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-500 hover:text-gray-700`}
-                >
-                  <ViewColumnsIcon className="h-4 w-4" />
-                </button>
-                <button
-                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors bg-white text-gray-900 shadow-sm`}
-                >
-                  <RectangleStackIcon className="h-4 w-4" />
-                </button>
-              </div>
-              
-              <button
-                onClick={onAddAutomation}
-                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-              >
-                <PlusIcon className="h-5 w-5" />
-              </button>
-
-              {/* Import Button */}
-              <button
-                onClick={onImport}
-                disabled={isImporting}
-                className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors disabled:opacity-50"
-              >
-                <DocumentArrowUpIcon className="h-5 w-5" />
-              </button>
-
-              {/* Export Button */}
-              <div className="relative">
-                <button
-                  onClick={() => onToggleExportDropdown(!showExportDropdown)}
-                  className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
-                >
-                  <DocumentArrowDownIcon className="h-5 w-5" />
-                  <ChevronDownIcon className={`h-4 w-4 ml-1 transition-transform ${showExportDropdown ? 'rotate-180' : ''}`} />
-                </button>
-
-                {/* Export Dropdown - Simplified for tab view */}
-                {showExportDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-20">
-                    <div className="p-3">
-                      <div className="space-y-2">
-                        <button
-                          onClick={() => onExport('csv', 'filtered')}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded"
-                        >
-                          Export as CSV
-                        </button>
-                        <button
-                          onClick={() => onExport('json', 'filtered')}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded"
-                        >
-                          Export as JSON
-                        </button>
-                        <button
-                          onClick={() => onExport('excel', 'filtered')}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded"
-                        >
-                          Export as Excel
-                        </button>
-                        {selectedItems && selectedItems.size > 0 && (
-                          <>
-                            <hr className="my-2" />
-                            <button
-                              onClick={() => onExport('csv', 'selected')}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 rounded text-blue-700"
-                            >
-                              Export Selected ({selectedItems.size}) as CSV
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Tab Navigation */}
         {selectedAutomation && (
           <div className="bg-white border-b border-gray-200">
@@ -967,6 +690,41 @@ export default function AutomationTabView({
               <p className="text-gray-500">Select an automation to view details</p>
             </div>
           )}
+        </div>
+
+        {/* Bottom Bar - consistent with slide view */}
+        <div className="bg-white border-t border-gray-200 px-6 py-3 flex-shrink-0">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              <p className="text-sm text-gray-500">
+                Showing {filteredSidebarAutomations.length} of {automations.length} automations
+                {hasActiveFilters && (
+                  <span className="text-blue-600 ml-1">(filtered)</span>
+                )}
+                {searchResults && searchTerm && (
+                  <span className="text-purple-600 ml-1">
+                    • Search: {searchResults.total_count} result{searchResults.total_count !== 1 ? 's' : ''}
+                    {searchResults.exact_matches?.length > 0 && (
+                      <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        {searchResults.exact_matches.length} exact
+                      </span>
+                    )}
+                    {searchResults.fuzzy_matches?.length > 0 && (
+                      <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                        {searchResults.fuzzy_matches.length} similar
+                      </span>
+                    )}
+                  </span>
+                )}
+                {selectedItems.size > 0 && (
+                  <span className="text-green-600 ml-1">• {selectedItems.size} selected</span>
+                )}
+              </p>
+            </div>
+            <div className="text-sm text-gray-500">
+              <span>Last updated: {new Date().toLocaleDateString()}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

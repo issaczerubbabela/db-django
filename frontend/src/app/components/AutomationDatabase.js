@@ -8,6 +8,7 @@ import AutomationForm from './AutomationForm';
 import AutomationFormComplete from './AutomationFormComplete';
 import AutomationTabView from './AutomationTabView';
 import ImportModal from './ImportModal';
+import SharedHeader from './SharedHeader';
 import AuditLog from './AuditLog';
 
 export default function AutomationDatabase() {
@@ -1488,11 +1489,44 @@ export default function AutomationDatabase() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {viewType === 'tab' ? (
-        // Tab View
-        <div className="w-full">
-          <AutomationTabView 
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* Shared Header */}
+      <SharedHeader 
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        onClearSearch={clearSearch}
+        filters={filters}
+        onFiltersChange={setFilters}
+        showFilters={showFilters}
+        onToggleFilters={setShowFilters}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={clearFilters}
+        getUniqueValues={getUniqueValues}
+        viewType={viewType}
+        onViewTypeChange={setViewType}
+        onAddAutomation={() => setIsFormOpen(true)}
+        onImport={() => setIsImportModalOpen(true)}
+        isImporting={isImporting}
+        selectedItems={selectedItems}
+        onExport={handleExport}
+        showExportDropdown={showExportDropdown}
+        onToggleExportDropdown={setShowExportDropdown}
+        filterDropdownRef={filterDropdownRef}
+        exportDropdownRef={exportDropdownRef}
+        isSearching={isSearching}
+        searchResults={searchResults}
+        showSearchResults={showSearchResults}
+        onClearSearchResults={() => {
+          setSearchResults(null);
+          setShowSearchResults(false);
+        }}
+      />
+      
+      <div className="flex flex-1 overflow-hidden">
+        {viewType === 'tab' ? (
+          // Tab View
+          <div className="w-full">
+            <AutomationTabView 
             automations={filteredAutomations} 
             loading={loading} 
             onViewTypeChange={setViewType}
@@ -1538,679 +1572,22 @@ export default function AutomationDatabase() {
           />
         </div>
       ) : (
-        // Slide View (Original)
-        <>
+        // Slide View - header now shared above
+        <div className="flex h-full overflow-hidden">
           {/* Main Content Area */}
           <div className={`flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-2/3' : 'w-full'}`}>
-            {/* Header */}
-            <div className="bg-white shadow-sm border-b border-gray-200">
-              <div className="px-6 py-4">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center space-x-4 flex-1">
-                    <div>
-                      <h1 className="text-2xl font-semibold text-gray-900">
-                        Automation Database
-                      </h1>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Manage and track automation records
-                      </p>
-                    </div>
-                    
-                    {/* Search Bar - aligned with tab view style */}
-                    <div className="flex-1 relative max-w-md">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="Search across all fields..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="block w-full pl-10 pr-10 py-2 border border-gray-300 text-black rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                      {/* Clear search button */}
-                      {searchTerm && (
-                        <button
-                          onClick={clearSearch}
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                        >
-                          <svg className="h-4 w-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      )}
-                      
-                      {/* Search Status */}
-                      {isSearching && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-md shadow-sm border border-gray-200 z-30 p-3">
-                          <span className="flex items-center text-sm text-gray-600">
-                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Searching...
-                          </span>
-                        </div>
-                      )}
-                      
-                      {/* Search Results Summary */}
-                      {!isSearching && searchResults && searchTerm && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-md shadow-sm border border-gray-200 z-30 p-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">
-                              Found {searchResults.total_count} result{searchResults.total_count !== 1 ? 's' : ''} for &ldquo;{searchResults.query}&rdquo;
-                              {searchResults.exact_matches?.length > 0 && (
-                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                  {searchResults.exact_matches.length} exact
-                                </span>
-                              )}
-                              {searchResults.fuzzy_matches?.length > 0 && (
-                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                                  {searchResults.fuzzy_matches.length} similar
-                                </span>
-                              )}
-                            </span>
-                            <button
-                              onClick={() => {
-                                setSearchResults(null);
-                                setShowSearchResults(false);
-                              }}
-                              className="text-gray-400 hover:text-gray-600"
-                            >
-                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Filter Button */}
-                    <div className="relative" ref={filterDropdownRef}>
-                      <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className={`flex items-center px-3 py-2 border rounded-md text-sm font-medium transition-colors ${
-                          hasActiveFilters 
-                            ? 'border-blue-500 text-blue-600 bg-blue-50' 
-                            : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
-                        }`}
-                      >
-                        <FunnelIcon className="h-4 w-4" />
-                        {hasActiveFilters && (
-                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {Object.entries(filters).filter(([key, value]) => {
-                              if (typeof value === 'object' && value !== null) {
-                                return value.type !== '' || value.value !== '';
-                              }
-                              return value !== '';
-                            }).length}
-                          </span>
-                        )}
-                        <ChevronDownIcon className={`h-4 w-4 ml-1 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-                      </button>
-                      
-                      {/* Filter Dropdown */}
-                      {showFilters && (
-                        <div className="absolute right-0 mt-2 w-96 bg-white rounded-md shadow-lg border border-gray-200 z-10 max-h-96 overflow-y-auto">
-                          <div className="p-4">
-                            <div className="flex items-center justify-between mb-4">
-                              <h3 className="text-lg font-medium text-gray-900">Filters</h3>
-                              {hasActiveFilters && (
-                                <button
-                                  onClick={clearFilters}
-                                  className="text-sm text-blue-600 hover:text-blue-800"
-                                >
-                                  Clear all
-                                </button>
-                              )}
-                            </div>
-                            
-                            <div className="space-y-4">
-                              {/* Basic Filters Section */}
-                              <div className="border-b border-gray-200 pb-4">
-                                <h4 className="text-sm font-medium text-gray-800 mb-3">Basic Filters</h4>
-                                <div className="grid grid-cols-2 gap-3">
-                                  {/* Type Filter */}
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                                    <select
-                                      value={filters.type}
-                                      onChange={(e) => setFilters({...filters, type: e.target.value})}
-                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                      <option value="" className="text-gray-800">All types</option>
-                                      {getUniqueValues('type').map(type => (
-                                        <option key={type} value={type} className="text-gray-800">{type}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  
-                                  {/* Complexity Filter */}
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Complexity</label>
-                                    <select
-                                      value={filters.complexity}
-                                      onChange={(e) => setFilters({...filters, complexity: e.target.value})}
-                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                      <option value="" className="text-gray-800">All complexities</option>
-                                      <option value="Low" className="text-gray-800">Low</option>
-                                      <option value="Medium" className="text-gray-800">Medium</option>
-                                      <option value="High" className="text-gray-800">High</option>
-                                    </select>
-                                  </div>
-                                  
-                                  {/* COE/FED Filter */}
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">COE/FED</label>
-                                    <select
-                                      value={filters.coe_fed}
-                                      onChange={(e) => setFilters({...filters, coe_fed: e.target.value})}
-                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                      <option value="" className="text-gray-800">All COE/FED</option>
-                                      {getUniqueValues('coe_fed').map(coe => (
-                                        <option key={coe} value={coe} className="text-gray-800">{coe}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  
-                                  {/* Description Filter */}
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                                    <select
-                                      value={filters.hasDescription}
-                                      onChange={(e) => setFilters({...filters, hasDescription: e.target.value})}
-                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                      <option value="" className="text-gray-800">All</option>
-                                      <option value="with" className="text-gray-800">With description</option>
-                                      <option value="without" className="text-gray-800">Without description</option>
-                                    </select>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Tool Filters Section */}
-                              <div className="border-b border-gray-200 pb-4">
-                                <h4 className="text-sm font-medium text-gray-800 mb-3">Tool Filters</h4>
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tool Name</label>
-                                    <select
-                                      value={filters.tool_name}
-                                      onChange={(e) => setFilters({...filters, tool_name: e.target.value})}
-                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                      <option value="" className="text-gray-800">All tools</option>
-                                      {getUniqueValues('tool_name').map(tool => (
-                                        <option key={tool} value={tool} className="text-gray-800">{tool}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tool Version</label>
-                                    <select
-                                      value={filters.tool_version}
-                                      onChange={(e) => setFilters({...filters, tool_version: e.target.value})}
-                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                      <option value="" className="text-gray-800">All versions</option>
-                                      {getUniqueValues('tool_version').map(version => (
-                                        <option key={version} value={version} className="text-gray-800">{version}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* People Filters Section */}
-                              <div className="border-b border-gray-200 pb-4">
-                                <h4 className="text-sm font-medium text-gray-800 mb-3">People Filters</h4>
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Project Manager</label>
-                                    <select
-                                      value={filters.project_manager}
-                                      onChange={(e) => setFilters({...filters, project_manager: e.target.value})}
-                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                      <option value="" className="text-gray-800">All PMs</option>
-                                      {getUniqueRoleValues('Project Manager').map(name => (
-                                        <option key={name} value={name} className="text-gray-800">{name}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Developer</label>
-                                    <select
-                                      value={filters.developer}
-                                      onChange={(e) => setFilters({...filters, developer: e.target.value})}
-                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                      <option value="" className="text-gray-800">All developers</option>
-                                      {getUniqueRoleValues('Developer').map(name => (
-                                        <option key={name} value={name} className="text-gray-800">{name}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tester</label>
-                                    <select
-                                      value={filters.tester}
-                                      onChange={(e) => setFilters({...filters, tester: e.target.value})}
-                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                      <option value="" className="text-gray-800">All testers</option>
-                                      {getUniqueRoleValues('Tester').map(name => (
-                                        <option key={name} value={name} className="text-gray-800">{name}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Business SPOC</label>
-                                    <select
-                                      value={filters.business_spoc}
-                                      onChange={(e) => setFilters({...filters, business_spoc: e.target.value})}
-                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                      <option value="" className="text-gray-800">All SPOCs</option>
-                                      {getUniqueRoleValues('Business SPOC').map(name => (
-                                        <option key={name} value={name} className="text-gray-800">{name}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Date Filters Section */}
-                              <div className="border-b border-gray-200 pb-4">
-                                <h4 className="text-sm font-medium text-gray-800 mb-3">Date Filters</h4>
-                                <div className="space-y-3">
-                                  {/* Pre-prod Deploy Date */}
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Pre-prod Deploy Date</label>
-                                    <div className="flex space-x-2">
-                                      <select
-                                        value={filters.preprod_deploy_date.type}
-                                        onChange={(e) => setFilters({...filters, preprod_deploy_date: {...filters.preprod_deploy_date, type: e.target.value}})}
-                                        className="w-1/3 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                      >
-                                        <option value="" className="text-gray-800">Any</option>
-                                        <option value="before" className="text-gray-800">Before</option>
-                                        <option value="after" className="text-gray-800">After</option>
-                                        <option value="on" className="text-gray-800">On</option>
-                                      </select>
-                                      <input
-                                        type="date"
-                                        value={filters.preprod_deploy_date.value}
-                                        onChange={(e) => setFilters({...filters, preprod_deploy_date: {...filters.preprod_deploy_date, value: e.target.value}})}
-                                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                      />
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Prod Deploy Date */}
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Prod Deploy Date</label>
-                                    <div className="flex space-x-2">
-                                      <select
-                                        value={filters.prod_deploy_date.type}
-                                        onChange={(e) => setFilters({...filters, prod_deploy_date: {...filters.prod_deploy_date, type: e.target.value}})}
-                                        className="w-1/3 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                      >
-                                        <option value="" className="text-gray-800">Any</option>
-                                        <option value="before" className="text-gray-800">Before</option>
-                                        <option value="after" className="text-gray-800">After</option>
-                                        <option value="on" className="text-gray-800">On</option>
-                                      </select>
-                                      <input
-                                        type="date"
-                                        value={filters.prod_deploy_date.value}
-                                        onChange={(e) => setFilters({...filters, prod_deploy_date: {...filters.prod_deploy_date, value: e.target.value}})}
-                                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                      />
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Warranty End Date */}
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Warranty End Date</label>
-                                    <div className="flex space-x-2">
-                                      <select
-                                        value={filters.warranty_end_date.type}
-                                        onChange={(e) => setFilters({...filters, warranty_end_date: {...filters.warranty_end_date, type: e.target.value}})}
-                                        className="w-1/3 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                      >
-                                        <option value="" className="text-gray-800">Any</option>
-                                        <option value="before" className="text-gray-800">Before</option>
-                                        <option value="after" className="text-gray-800">After</option>
-                                        <option value="on" className="text-gray-800">On</option>
-                                      </select>
-                                      <input
-                                        type="date"
-                                        value={filters.warranty_end_date.value}
-                                        onChange={(e) => setFilters({...filters, warranty_end_date: {...filters.warranty_end_date, value: e.target.value}})}
-                                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Environment Filters Section */}
-                              <div className="border-b border-gray-200 pb-4">
-                                <h4 className="text-sm font-medium text-gray-800 mb-3">Environment Filters</h4>
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Dev VDI</label>
-                                    <select
-                                      value={filters.dev_vdi}
-                                      onChange={(e) => setFilters({...filters, dev_vdi: e.target.value})}
-                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                      <option value="" className="text-gray-800">All dev VDIs</option>
-                                      {getUniqueEnvironmentValues('Development', 'vdi').map(vdi => (
-                                        <option key={vdi} value={vdi} className="text-gray-800">{vdi}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">QA VDI</label>
-                                    <select
-                                      value={filters.qa_vdi}
-                                      onChange={(e) => setFilters({...filters, qa_vdi: e.target.value})}
-                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                      <option value="" className="text-gray-800">All QA VDIs</option>
-                                      {getUniqueEnvironmentValues('QA', 'vdi').map(vdi => (
-                                        <option key={vdi} value={vdi} className="text-gray-800">{vdi}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Prod VDI</label>
-                                    <select
-                                      value={filters.prod_vdi}
-                                      onChange={(e) => setFilters({...filters, prod_vdi: e.target.value})}
-                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                      <option value="" className="text-gray-800">All prod VDIs</option>
-                                      {getUniqueEnvironmentValues('Production', 'vdi').map(vdi => (
-                                        <option key={vdi} value={vdi} className="text-gray-800">{vdi}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Metrics Filters Section */}
-                              <div>
-                                <h4 className="text-sm font-medium text-gray-800 mb-3">Metrics Filters</h4>
-                                <div className="space-y-3">
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Success Rate %</label>
-                                    <div className="flex space-x-2">
-                                      <select
-                                        value={filters.post_prod_success_rate.type}
-                                        onChange={(e) => setFilters({...filters, post_prod_success_rate: {...filters.post_prod_success_rate, type: e.target.value}})}
-                                        className="w-1/3 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                      >
-                                        <option value="" className="text-gray-800">Any</option>
-                                        <option value="equals" className="text-gray-800">Equals</option>
-                                        <option value="greater" className="text-gray-800">Greater than</option>
-                                        <option value="less" className="text-gray-800">Less than</option>
-                                      </select>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        step="0.01"
-                                        value={filters.post_prod_success_rate.value}
-                                        onChange={(e) => setFilters({...filters, post_prod_success_rate: {...filters.post_prod_success_rate, value: e.target.value}})}
-                                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="0.00"
-                                      />
-                                    </div>
-                                  </div>
-                                  
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Total Cases</label>
-                                    <div className="flex space-x-2">
-                                      <select
-                                        value={filters.post_prod_total_cases.type}
-                                        onChange={(e) => setFilters({...filters, post_prod_total_cases: {...filters.post_prod_total_cases, type: e.target.value}})}
-                                        className="w-1/3 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                      >
-                                        <option value="" className="text-gray-800">Any</option>
-                                        <option value="equals" className="text-gray-800">Equals</option>
-                                        <option value="greater" className="text-gray-800">Greater than</option>
-                                        <option value="less" className="text-gray-800">Less than</option>
-                                      </select>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        value={filters.post_prod_total_cases.value}
-                                        onChange={(e) => setFilters({...filters, post_prod_total_cases: {...filters.post_prod_total_cases, value: e.target.value}})}
-                                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="0"
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-3">
-                    {/* View Toggle */}
-                    <div className="flex bg-gray-100 rounded-md p-1">
-                      <button
-                        onClick={() => setViewType('slide')}
-                        className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                          viewType === 'slide'
-                            ? 'bg-white text-gray-900 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-700'
-                        }`}
-                      >
-                        <ViewColumnsIcon className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => setViewType('tab')}
-                        className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                          viewType === 'tab'
-                            ? 'bg-white text-gray-900 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-700'
-                        }`}
-                      >
-                        <RectangleStackIcon className="h-4 w-4" />
-                      </button>
-                    </div>
-                    
-                    <button
-                      onClick={() => setIsFormOpen(true)}
-                      className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-                    >
-                      <PlusIcon className="h-5 w-5" />
-                    </button>
-
-                    {/* Import Button */}
-                    <button
-                      onClick={() => setIsImportModalOpen(true)}
-                      disabled={isImporting}
-                      className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors disabled:opacity-50"
-                    >
-                      <DocumentArrowUpIcon className="h-5 w-5" />
-                    </button>
-
-                    {/* Export Button */}
-                    <div className="relative" ref={exportDropdownRef}>
-                      <button
-                        onClick={() => setShowExportDropdown(!showExportDropdown)}
-                        className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
-                      >
-                        <DocumentArrowDownIcon className="h-5 w-5" />
-                        <ChevronDownIcon className={`h-4 w-4 ml-1 transition-transform ${showExportDropdown ? 'rotate-180' : ''}`} />
-                      </button>
-
-                      {/* Export Dropdown */}
-                      {showExportDropdown && (
-                        <div className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg border border-gray-200 z-20">
-                          <div className="p-4">
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">Export Data</h3>
-                            
-                            {/* Export Scope */}
-                            <div className="mb-4">
-                              <h4 className="text-sm font-medium text-gray-700 mb-2">What to export:</h4>
-                              <div className="space-y-2">
-                                {selectedItems.size > 0 && (
-                                  <button
-                                    onClick={() => {}}
-                                    className="w-full text-left px-3 py-2 text-sm bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors"
-                                  >
-                                    <div className="font-medium text-blue-900">Selected Items ({selectedItems.size})</div>
-                                    <div className="text-blue-700">Export only selected automations</div>
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => {}}
-                                  className="w-full text-left px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100 transition-colors"
-                                >
-                                  <div className="font-medium text-gray-900">
-                                    {hasActiveFilters || searchTerm ? 'Filtered Results' : 'Current View'} ({filteredAutomations.length})
-                                  </div>
-                                  <div className="text-gray-700">
-                                    {hasActiveFilters || searchTerm ? 'Export filtered/searched results' : 'Export all visible items'}
-                                  </div>
-                                </button>
-                                <button
-                                  onClick={() => {}}
-                                  className="w-full text-left px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100 transition-colors"
-                                >
-                                  <div className="font-medium text-gray-900">All Data ({automations.length})</div>
-                                  <div className="text-gray-700">Export complete database</div>
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Export Formats */}
-                            <div>
-                              <h4 className="text-sm font-medium text-gray-700 mb-2">Export format:</h4>
-                              <div className="grid grid-cols-3 gap-2">
-                                {/* CSV Format */}
-                                <div className="space-y-1">
-                                  {selectedItems.size > 0 && (
-                                    <button
-                                      onClick={() => handleExport('csv', 'selected')}
-                                      className="w-full px-3 py-2 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                                      title="Export selected as CSV"
-                                    >
-                                      CSV
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={() => handleExport('csv', 'filtered')}
-                                    className="w-full px-3 py-2 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                                    title="Export filtered/current view as CSV"
-                                  >
-                                    CSV
-                                  </button>
-                                  <button
-                                    onClick={() => handleExport('csv', 'all')}
-                                    className="w-full px-3 py-2 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                                    title="Export all data as CSV"
-                                  >
-                                    CSV
-                                  </button>
-                                </div>
-
-                                {/* JSON Format */}
-                                <div className="space-y-1">
-                                  {selectedItems.size > 0 && (
-                                    <button
-                                      onClick={() => handleExport('json', 'selected')}
-                                      className="w-full px-3 py-2 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
-                                      title="Export selected as JSON"
-                                    >
-                                      JSON
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={() => handleExport('json', 'filtered')}
-                                    className="w-full px-3 py-2 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
-                                    title="Export filtered/current view as JSON"
-                                  >
-                                    JSON
-                                  </button>
-                                  <button
-                                    onClick={() => handleExport('json', 'all')}
-                                    className="w-full px-3 py-2 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
-                                    title="Export all data as JSON"
-                                  >
-                                    JSON
-                                  </button>
-                                </div>
-
-                                {/* Excel Format */}
-                                <div className="space-y-1">
-                                  {selectedItems.size > 0 && (
-                                    <button
-                                      onClick={() => handleExport('excel', 'selected')}
-                                      className="w-full px-3 py-2 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                                      title="Export selected as Excel"
-                                    >
-                                      Excel
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={() => handleExport('excel', 'filtered')}
-                                    className="w-full px-3 py-2 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                                    title="Export filtered/current view as Excel"
-                                  >
-                                    Excel
-                                  </button>
-                                  <button
-                                    onClick={() => handleExport('excel', 'all')}
-                                    className="w-full px-3 py-2 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                                    title="Export all data as Excel"
-                                  >
-                                    Excel
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* Table */}
             <div className="flex-1 overflow-auto">
-              <div className="px-6 py-4">
+              <div className={`${isSidebarOpen ? 'px-6 py-4' : 'p-0'}`}>
                 {loading ? (
-                  <div className="bg-white shadow rounded-lg p-8">
+                  <div className={`bg-white shadow rounded-lg p-8 ${!isSidebarOpen ? 'm-6' : ''}`}>
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
                       <p className="text-gray-500 mt-4">Loading automations...</p>
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-white shadow rounded-lg overflow-hidden">
+                  <div className={`bg-white shadow ${isSidebarOpen ? 'rounded-lg' : ''} overflow-hidden ${!isSidebarOpen ? 'm-6 rounded-lg' : ''}`}>
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
@@ -2475,7 +1852,7 @@ export default function AutomationDatabase() {
           </div>
 
           {/* Sidebar */}
-          <div className={`transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-1/3' : 'w-0'} overflow-hidden`}>
+          <div className={`transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-1/3 flex-shrink-0' : 'w-0'} overflow-hidden`}>
             <AutomationDetailsSidebar
               isOpen={isSidebarOpen}
               onClose={closeSidebar}
@@ -2484,7 +1861,7 @@ export default function AutomationDatabase() {
               searchTerm={searchTerm}
             />
           </div>
-        </>
+        </div>
       )}
 
       {/* Form Modal */}
@@ -2501,6 +1878,7 @@ export default function AutomationDatabase() {
         onImport={fetchAutomations}
         existingAutomations={automations}
       />
+      </div>
     </div>
   );
 }
