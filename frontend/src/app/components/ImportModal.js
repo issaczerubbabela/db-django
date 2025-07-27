@@ -20,30 +20,30 @@ export default function ImportModal({ isOpen, onClose, onImport, existingAutomat
   const templateHeaders = [
     // Core Automation fields
     'air_id', 'name', 'type', 'brief_description', 'coe_fed', 'complexity',
-    'tool_version', 'process_details', 'object_details', 'queue',
+    'tool_name', 'tool_version', 'process_details', 'object_details', 'queue',
     'shared_folders', 'shared_mailboxes', 'qa_handshake',
     'preprod_deploy_date', 'prod_deploy_date', 'warranty_end_date',
-    'comments', 'documentation', 'modified', 'path',
+    'comments', 'documentation', 'modified', 'modified_by', 'path',
+    'created_at', 'updated_at',
     
-    // Tool information
-    'tool_name', 'tool_version_detail', 'tool_vendor', 'tool_installation_path',
-    'tool_license_type', 'tool_created_date', 'tool_last_updated',
+    // Person roles (based on AutomationPersonRole model)
+    'project_manager', 'project_designer', 'developer', 'tester', 
+    'business_spoc', 'business_stakeholders', 'app_owner',
     
-    // Person roles
-    'business_analyst_name', 'business_analyst_role', 'business_analyst_contact',
-    'automation_developer_name', 'automation_developer_role', 'automation_developer_contact',
-    'automation_lead_name', 'automation_lead_role', 'automation_lead_contact',
-    'code_reviewer_name', 'code_reviewer_role', 'code_reviewer_contact',
-    'tester_name', 'tester_role', 'tester_contact',
+    // Environment configurations (based on Environment model)
+    'dev_vdi', 'dev_service_account',
+    'qa_vdi', 'qa_service_account', 
+    'uat_vdi', 'uat_service_account',
+    'prod_vdi', 'prod_service_account',
     
-    // Environment configurations
-    'dev_server_name', 'dev_connection_string', 'dev_access_credentials',
-    'preprod_server_name', 'preprod_connection_string', 'preprod_access_credentials',
-    'prod_server_name', 'prod_connection_string', 'prod_access_credentials',
-    'uat_server_name', 'uat_connection_string', 'uat_access_credentials',
+    // Test data (based on TestData model)
+    'test_data_spoc',
     
-    // Metrics data
-    'execution_time', 'success_rate', 'error_rate', 'performance_score'
+    // Metrics data (based on Metrics model)
+    'post_prod_total_cases', 'post_prod_sys_ex_count', 'post_prod_success_rate',
+    
+    // Artifacts (based on Artifacts model)
+    'artifacts_link', 'code_review', 'demo', 'rampup_issue_list'
   ];
 
   // Reset modal state when opening/closing and auto-open file selector
@@ -161,6 +161,121 @@ export default function ImportModal({ isOpen, onClose, onImport, existingAutomat
     });
   };
 
+  const transformDataForAPI = (csvData) => {
+    const transformedData = { ...csvData };
+    
+    // Transform person fields to the format expected by the backend
+    if (transformedData.modified_by) {
+      transformedData.modified_by_name = transformedData.modified_by;
+      delete transformedData.modified_by;
+    }
+    
+    // Transform tool name field
+    if (transformedData.tool_name) {
+      transformedData.tool_name = transformedData.tool_name;
+    }
+    
+    // Create people_data array for person roles
+    const peopleData = [];
+    
+    // Map role fields to people_data
+    const roleMapping = {
+      project_manager: 'project_manager',
+      project_designer: 'project_designer',
+      developer: 'developer',
+      tester: 'tester',
+      business_spoc: 'business_spoc',
+      business_stakeholders: 'business_stakeholder',
+      app_owner: 'app_owner'
+    };
+    
+    Object.entries(roleMapping).forEach(([csvField, dbRole]) => {
+      if (transformedData[csvField]) {
+        // Handle multiple people in business_stakeholders (semicolon separated)
+        if (csvField === 'business_stakeholders') {
+          const stakeholders = transformedData[csvField].split(';').map(s => s.trim());
+          stakeholders.forEach(stakeholder => {
+            if (stakeholder) {
+              peopleData.push({ name: stakeholder, role: dbRole });
+            }
+          });
+        } else {
+          peopleData.push({ name: transformedData[csvField], role: dbRole });
+        }
+        delete transformedData[csvField];
+      }
+    });
+    
+    if (peopleData.length > 0) {
+      transformedData.people_data = peopleData;
+    }
+    
+    // Create environments_data array
+    const environmentsData = [];
+    const envTypes = ['dev', 'qa', 'uat', 'prod'];
+    
+    envTypes.forEach(envType => {
+      const vdiField = `${envType}_vdi`;
+      const serviceAccountField = `${envType}_service_account`;
+      
+      if (transformedData[vdiField] || transformedData[serviceAccountField]) {
+        environmentsData.push({
+          type: envType,
+          vdi: transformedData[vdiField] || '',
+          service_account: transformedData[serviceAccountField] || ''
+        });
+        delete transformedData[vdiField];
+        delete transformedData[serviceAccountField];
+      }
+    });
+    
+    if (environmentsData.length > 0) {
+      transformedData.environments_data = environmentsData;
+    }
+    
+    // Create test_data_data
+    if (transformedData.test_data_spoc) {
+      transformedData.test_data_data = { spoc: transformedData.test_data_spoc };
+      delete transformedData.test_data_spoc;
+    }
+    
+    // Create metrics_data
+    const metricsFields = ['post_prod_total_cases', 'post_prod_sys_ex_count', 'post_prod_success_rate'];
+    const metricsData = {};
+    let hasMetrics = false;
+    
+    metricsFields.forEach(field => {
+      if (transformedData[field] !== null && transformedData[field] !== undefined && transformedData[field] !== '') {
+        metricsData[field] = transformedData[field];
+        hasMetrics = true;
+        delete transformedData[field];
+      }
+    });
+    
+    if (hasMetrics) {
+      transformedData.metrics_data = metricsData;
+    }
+    
+    // Create artifacts_data
+    const artifactsFields = ['artifacts_link', 'code_review', 'demo', 'rampup_issue_list'];
+    const artifactsData = {};
+    let hasArtifacts = false;
+    
+    artifactsFields.forEach(field => {
+      if (transformedData[field] !== null && transformedData[field] !== undefined && transformedData[field] !== '') {
+        artifactsData[field] = transformedData[field];
+        hasArtifacts = true;
+        delete transformedData[field];
+      }
+    });
+    
+    if (hasArtifacts) {
+      transformedData.artifacts_data = artifactsData;
+    }
+    
+    return transformedData;
+  };
+
   const validateRow = (row, rowNumber) => {
     const errors = [];
     const data = {};
@@ -193,7 +308,7 @@ export default function ImportModal({ isOpen, onClose, onImport, existingAutomat
     });
 
     // Date validation and formatting
-    ['preprod_deploy_date', 'prod_deploy_date', 'warranty_end_date', 'modified'].forEach(dateField => {
+    ['preprod_deploy_date', 'prod_deploy_date', 'warranty_end_date', 'modified', 'created_at', 'updated_at'].forEach(dateField => {
       if (data[dateField]) {
         try {
           const date = new Date(data[dateField]);
@@ -232,19 +347,21 @@ export default function ImportModal({ isOpen, onClose, onImport, existingAutomat
       setImportProgress({ current: currentOperation, total: totalOperations });
 
       try {
+        const transformedRecord = transformDataForAPI(record);
         const response = await fetch('/api/automations', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(record),
+          body: JSON.stringify(transformedRecord),
         });
 
         if (response.ok) {
           addedCount++;
         } else {
-          const errorText = await response.text();
-          syncErrors.push(`Add ${record.air_id}: ${errorText}`);
+          const errorData = await response.json();
+          const errorMessage = typeof errorData === 'object' ? JSON.stringify(errorData) : errorData;
+          syncErrors.push(`Add ${record.air_id}: ${errorMessage}`);
         }
       } catch (error) {
         syncErrors.push(`Add ${record.air_id}: ${error.message}`);
@@ -257,19 +374,21 @@ export default function ImportModal({ isOpen, onClose, onImport, existingAutomat
       setImportProgress({ current: currentOperation, total: totalOperations });
 
       try {
+        const transformedRecord = transformDataForAPI(record);
         const response = await fetch(`/api/automations/${record.air_id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(record),
+          body: JSON.stringify(transformedRecord),
         });
 
         if (response.ok) {
           updatedCount++;
         } else {
-          const errorText = await response.text();
-          syncErrors.push(`Update ${record.air_id}: ${errorText}`);
+          const errorData = await response.json();
+          const errorMessage = typeof errorData === 'object' ? JSON.stringify(errorData) : errorData;
+          syncErrors.push(`Update ${record.air_id}: ${errorMessage}`);
         }
       } catch (error) {
         syncErrors.push(`Update ${record.air_id}: ${error.message}`);

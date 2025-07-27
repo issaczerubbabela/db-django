@@ -2,6 +2,24 @@
 echo Starting full application stack...
 echo.
 
+echo Checking and setting up virtual environment...
+if not exist "venv" (
+    echo Creating virtual environment...
+    python -m venv venv
+    echo Virtual environment created.
+) else (
+    echo Virtual environment already exists.
+)
+
+echo Activating virtual environment...
+call venv\Scripts\activate.bat
+
+echo Installing/updating backend dependencies...
+cd backend
+pip install -r requirements.txt
+cd ..
+echo.
+
 echo Starting backend servers...
 start "Backend Servers" cmd /k "cd backend && start_servers.bat"
 
