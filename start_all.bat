@@ -3,16 +3,16 @@ echo Starting full application stack...
 echo.
 
 echo Checking and setting up virtual environment...
-if not exist "venv" (
+if not exist ".venv" (
     echo Creating virtual environment...
-    python -m venv venv
+    python -m venv .venv
     echo Virtual environment created.
 ) else (
     echo Virtual environment already exists.
 )
 
 echo Activating virtual environment...
-call venv\Scripts\activate.bat
+call .venv\Scripts\activate.bat
 
 echo Installing/updating backend dependencies...
 cd backend
