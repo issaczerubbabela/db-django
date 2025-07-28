@@ -299,7 +299,45 @@ The system supports comprehensive search and filtering:
 ### Flattened Export Structure
 Complex nested data (people, environments, metrics) is intelligently flattened for spreadsheet compatibility while preserving all information.
 
-## 🛠️ Configuration
+## � Production Deployment
+
+### Quick Production Deployment
+
+**Prerequisites:** Docker and Docker Compose installed
+
+1. **Clone and configure:**
+   ```bash
+   git clone https://github.com/issaczerubbabela/db-django.git
+   cd db-django
+   cp .env.example .env
+   # Edit .env with your production values
+   ```
+
+2. **Deploy:**
+   ```bash
+   # Windows
+   setup-production.bat && deploy.bat
+   
+   # Linux/Mac
+   chmod +x *.sh && ./setup-production.sh && ./deploy.sh
+   ```
+
+3. **Access:**
+   - Application: http://localhost
+   - Admin: http://localhost/admin/
+   - API Docs: http://localhost/fastapi/docs
+
+### Production Features
+- 🐳 **Docker containerization** with multi-service architecture
+- 🗄️ **PostgreSQL database** with automated migrations
+- 🔒 **Nginx reverse proxy** with SSL support
+- 📊 **Health monitoring** and logging
+- 🚀 **One-command deployment**
+- 🔧 **Environment-based configuration**
+
+For detailed production setup, see [DEPLOYMENT.md](DEPLOYMENT.md)
+
+## �🛠️ Configuration
 
 ### Environment Variables
 Create `.env` files in respective directories:
