@@ -1573,7 +1573,7 @@ export default function AutomationDatabase() {
         </div>
       ) : (
         // Slide View - header now shared above
-        <div className="flex h-full overflow-hidden">
+        <div className="flex h-full w-full overflow-hidden">
           {/* Main Content Area */}
           <div className={`flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-2/3' : 'w-full'}`}>
             {/* Table */}
